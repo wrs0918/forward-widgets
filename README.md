@@ -14,6 +14,12 @@ Raw 地址：
 https://raw.githubusercontent.com/wrs0918/forward-widgets/main/widgets/normal/VodMax.js
 ```
 
+### Forward MSaber Adapter
+
+路径：`msaber-adapter/`
+
+用于把 Forward 的 MoviePilot 风格服务器订阅请求转接到 MSaber。支持 Docker 部署到 NAS，先用 dry-run 记录 Forward 请求，再按 MSaber 实际订阅接口配置转发。
+
 ## 这个版本做了什么
 
 当前这版 `VodMax.js` 是纯资源模块，重点优化了这些问题：
