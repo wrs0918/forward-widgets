@@ -31,6 +31,11 @@ const CHINESE_NUMBERS = {
     "十": 10
 };
 
+const TITLE_ALIASES = {
+    "冰与火之歌": ["权力的游戏"],
+    "权力的游戏": ["冰与火之歌"]
+};
+
 WidgetMetadata = {
     id: "vod_max_stream_smart_20260615",
     title: "VOD资源聚合",
@@ -110,6 +115,11 @@ function normalizeText(value) {
         .toLowerCase();
 }
 
+function normalizeCompactText(value) {
+    return normalizeText(value)
+        .replace(/[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]/g, roman => ({ "Ⅰ": "1", "Ⅱ": "2", "Ⅲ": "3", "Ⅳ": "4", "Ⅴ": "5", "Ⅵ": "6", "Ⅶ": "7", "Ⅷ": "8", "Ⅸ": "9", "Ⅹ": "10" }[roman] || roman));
+}
+
 function chineseNumberToInt(value) {
     const text = safeText(value);
     if (!text) return 0;
@@ -162,7 +172,7 @@ function extractTrailingTitleNumber(text) {
         .replace(/\bseason\s*\d{1,2}\b/gi, "")
         .replace(/\bs\s*0?\d{1,2}\b/gi, "")
         .trim();
-    const match = value.match(/([\u4e00-\u9fa5A-Za-z]+)(\d{1,2})(?:$|[（(])/);
+    const match = value.match(/([\u4e00-\u9fa5A-Za-z]+)\s*(\d{1,2})(?:$|[（(])/);
     if (match && Number(match[2]) > 1 && !/\d{4}/.test(match[0])) return Number(match[2]);
     return 0;
 }
@@ -179,6 +189,8 @@ function removeSeasonText(title) {
 function removeNoiseText(title) {
     return safeText(title)
         .replace(/&amp;/g, "&")
+        .replace(/Ⅱ/g, "2")
+        .replace(/Ⅰ/g, "1")
         .replace(/[\[\(（【].*?(粤语|国语|普通话|加更|超前|reaction|解说|预告|花絮|片花|特辑|中字|字幕).*?[\]\)）】]/gi, "")
         .replace(/粤语版|国语版|普通话版|粤语|国语|普通话|中字|字幕/g, "")
         .replace(/完整版|加更版|超前营业|reaction|电影解说|预告片?|花絮|片花|先导片|制作特辑|短视频/g, "")
@@ -195,7 +207,7 @@ function cleanSearchKeyword(title, options) {
 }
 
 function normalizeTitle(title) {
-    return normalizeText(cleanSearchKeyword(title));
+    return normalizeCompactText(cleanSearchKeyword(title));
 }
 
 function isAuxiliaryTitle(title) {
@@ -227,6 +239,7 @@ function buildStreamPayload(params) {
     const seasonNumber = Number(season) || seasonFromText || 0;
     const releaseDate = safeText(params.airDate || params.premiereDate || params.releaseDate || params.date);
     const year = safeText(params.year || releaseDate.slice(0, 4));
+    const explicitSeason = safeText(params.season) !== "";
 
     return {
         title: title,
@@ -237,6 +250,7 @@ function buildStreamPayload(params) {
         imdbId: safeText(params.imdbId),
         season: season,
         seasonNumber: seasonNumber,
+        explicitSeason: explicitSeason,
         episode: episode,
         releaseDate: releaseDate,
         dateCode: parseDateCode([episodeName, title, releaseDate].join(" ")),
@@ -252,9 +266,12 @@ function buildSearchKeywords(payload) {
     const baseTitles = uniq([
         payload.seriesName,
         payload.title,
+        ...(TITLE_ALIASES[payload.seriesName] || []),
+        ...(TITLE_ALIASES[payload.title] || []),
         payload.episodeName && payload.seriesName ? payload.seriesName : "",
         payload.title.replace(/[：:]\s*.*$/g, ""),
-        payload.title.replace(/[，,]\s*/g, " ")
+        payload.title.replace(/[，,]\s*/g, " "),
+        payload.title.replace(/\s+(\d{1,2})$/g, "$1")
     ]);
 
     const keywords = [];
@@ -262,6 +279,7 @@ function buildSearchKeywords(payload) {
         const cleanWithSeason = cleanSearchKeyword(title, { removeSeason: false });
         const cleanWithoutSeason = cleanSearchKeyword(title);
         keywords.push(cleanWithSeason);
+        keywords.push(cleanWithSeason.replace(/\s+(\d{1,2})$/g, "$1"));
         if (season > 1 && cleanWithoutSeason) {
             keywords.push(`${cleanWithoutSeason}第${seasonChinese}季`);
             keywords.push(`${cleanWithoutSeason}${season}`);
@@ -281,12 +299,16 @@ function titleSimilarityScore(itemTitle, keyword, payload) {
     const normalizedKeyword = normalizeTitle(keyword);
     const normalizedPayloadTitle = normalizeTitle(payload.title);
     const normalizedSeries = normalizeTitle(payload.seriesName);
+    const aliasTitles = uniq([
+        ...(TITLE_ALIASES[payload.title] || []),
+        ...(TITLE_ALIASES[payload.seriesName] || [])
+    ]).map(normalizeTitle);
     let score = 0;
 
     if (!item || !normalizedKeyword) return -100;
-    if (item === normalizedKeyword || item === normalizedPayloadTitle || (normalizedSeries && item === normalizedSeries)) score += 170;
+    if (item === normalizedKeyword || item === normalizedPayloadTitle || (normalizedSeries && item === normalizedSeries) || aliasTitles.includes(item)) score += 170;
     else if (item.startsWith(normalizedKeyword) || normalizedKeyword.startsWith(item)) score += 120;
-    else if (item.includes(normalizedKeyword) || normalizedKeyword.includes(item)) score += 90;
+    else if (item.includes(normalizedKeyword) || normalizedKeyword.includes(item) || aliasTitles.some(alias => item.includes(alias) || alias.includes(item))) score += 90;
 
     if (payload.year && safeText(itemTitle).includes(payload.year)) score += 16;
     return score;
@@ -312,12 +334,45 @@ function strictTitlePenalty(item, payload) {
     return penalty;
 }
 
+function isTitlePolluted(item, payload) {
+    const itemTitle = normalizeTitle(item.vod_name);
+    const rawItemTitle = safeText(item.vod_name);
+    const title = normalizeTitle(payload.title);
+    const series = normalizeTitle(payload.seriesName || payload.title);
+    const aliases = uniq([
+        ...(TITLE_ALIASES[payload.title] || []),
+        ...(TITLE_ALIASES[payload.seriesName] || [])
+    ]).map(normalizeTitle);
+    const targets = uniq([title, series, ...aliases]).filter(Boolean);
+
+    if (/前传|后传|外传|番外|衍生/.test(rawItemTitle) && targets.some(target => itemTitle.includes(target)) && !targets.includes(itemTitle)) return true;
+    return targets.some(target => itemTitle.includes(target) && !itemTitle.startsWith(target));
+}
+
+function isMovieTitleMatch(item, payload) {
+    const itemTitle = normalizeTitle(item.vod_name);
+    const requestedTitle = normalizeTitle(payload.title);
+    if (!itemTitle || !requestedTitle) return false;
+    if (itemTitle === requestedTitle) return true;
+
+    const requestedTitleNumber = extractTrailingTitleNumber(payload.title || payload.seriesName);
+    const itemTitleNumber = extractTrailingTitleNumber(item.vod_name);
+    if (requestedTitleNumber && itemTitleNumber === requestedTitleNumber) {
+        const itemBase = normalizeTitle(removeSeasonText(item.vod_name)).replace(String(itemTitleNumber), "");
+        const requestedBase = normalizeTitle(removeSeasonText(payload.title)).replace(String(requestedTitleNumber), "");
+        return itemBase === requestedBase;
+    }
+
+    return false;
+}
+
 function seasonMatchScore(item, payload) {
-    if (!payload.seasonNumber || payload.seasonNumber <= 1) return 0;
+    if (!payload.seasonNumber) return 0;
     const text = [item.vod_name, item.vod_remarks, item.vod_class, item.type_name].map(safeText).join(" ");
     const itemSeason = extractSeasonNumber(text);
     if (itemSeason === payload.seasonNumber) return 120;
     if (itemSeason && itemSeason !== payload.seasonNumber) return -260;
+    if (payload.explicitSeason && payload.seasonNumber === 1) return 45;
 
     const cleanItem = normalizeTitle(removeSeasonText(item.vod_name));
     const cleanSeries = normalizeTitle(removeSeasonText(payload.seriesName || payload.title));
@@ -343,9 +398,10 @@ function scoreSearchMatch(item, payload, source, keyword) {
     const itemTitleNumber = extractTrailingTitleNumber(item.vod_name);
 
     if (requestedTitleNumber && itemTitleNumber !== requestedTitleNumber) return -999;
-    if (isMoviePayload(payload) && titleNormalized.length >= 5 && itemNormalized && itemNormalized !== titleNormalized && !itemNormalized.includes(titleNormalized)) {
+    if (isMoviePayload(payload) && titleNormalized.length >= 5 && !isMovieTitleMatch(item, payload)) {
         return -999;
     }
+    if (isTitlePolluted(item, payload)) return -999;
 
     let score = source.priority || 0;
     score += titleSimilarityScore(item.vod_name, keyword, payload);
@@ -558,7 +614,7 @@ async function fetchStreamsByCandidate(candidate, payload) {
         const data = await requestCms(source, { ac: "detail", ids: candidate.vodId }, 4600);
         const item = Array.isArray(data.list) ? data.list[0] : null;
         if (!item || isAuxiliaryTitle([item.vod_name, item.vod_remarks, item.vod_class].join(" "))) return [];
-        if (payload.seasonNumber > 1 && seasonMatchScore(item, payload) < 0) return [];
+        if (payload.explicitSeason && payload.seasonNumber && seasonMatchScore(item, payload) < 0) return [];
         return parseEpisodeCandidates(item, source, payload);
     } catch (error) {
         return [];
