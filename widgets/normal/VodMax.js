@@ -31,11 +31,6 @@ const CHINESE_NUMBERS = {
     "十": 10
 };
 
-const TITLE_ALIASES = {
-    "冰与火之歌": ["权力的游戏"],
-    "权力的游戏": ["冰与火之歌"]
-};
-
 WidgetMetadata = {
     id: "vod_max_stream_smart_20260615",
     title: "VOD资源聚合",
@@ -228,6 +223,107 @@ function parseDateCode(text) {
     return match ? match[1] : "";
 }
 
+function parseTitleList(value) {
+    if (Array.isArray(value)) return value.map(safeText).filter(Boolean);
+    if (value && typeof value === "object") return Object.values(value).map(safeText).filter(Boolean);
+    return splitMultiValue(value, ",")
+        .flatMap(part => splitMultiValue(part, "/"))
+        .flatMap(part => splitMultiValue(part, "|"))
+        .flatMap(part => splitMultiValue(part, ";"))
+        .flatMap(part => splitMultiValue(part, "\n"));
+}
+
+async function requestJsonUrl(url, params, timeout) {
+    const response = await Widget.http.get(url, {
+        params: params || {},
+        headers: buildHeaders(),
+        timeout: timeout || 1600
+    });
+    return parseJson(response.data);
+}
+
+function normalizeAlias(alias) {
+    return removeNoiseText(alias)
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function cleanAliasList(values, payload) {
+    const blocked = new Set([
+        normalizeTitle(payload.title),
+        normalizeTitle(payload.seriesName),
+        ""
+    ]);
+    const aliases = [];
+    const seen = new Set();
+    for (const value of values) {
+        const alias = normalizeAlias(value);
+        const normalized = normalizeTitle(alias);
+        if (!alias || alias.length < 2 || alias.length > 50) continue;
+        if (blocked.has(normalized) || seen.has(normalized)) continue;
+        if (/列表|角色|人物|游戏|小說|小说|漫畫|漫画|原聲|原声|soundtrack/i.test(alias)) continue;
+        seen.add(normalized);
+        aliases.push(alias);
+    }
+    return aliases.slice(0, 8);
+}
+
+async function fetchWikidataAliases(payload) {
+    const terms = uniq([payload.title, payload.seriesName].filter(Boolean));
+    const aliases = [];
+    for (const term of terms.slice(0, 2)) {
+        try {
+            const data = await requestJsonUrl("https://www.wikidata.org/w/api.php", {
+                action: "wbsearchentities",
+                search: term,
+                language: "zh",
+                uselang: "zh",
+                format: "json",
+                type: "item",
+                limit: 5,
+                origin: "*"
+            }, 1500);
+            const rows = Array.isArray(data.search) ? data.search : [];
+            for (const row of rows) {
+                aliases.push(row.label);
+                if (Array.isArray(row.aliases)) aliases.push(...row.aliases);
+            }
+        } catch (error) {
+            continue;
+        }
+    }
+    return cleanAliasList(aliases, payload);
+}
+
+async function fetchTvmazeAliases(payload) {
+    if (payload.mediaType && payload.mediaType !== "tv") return [];
+    const terms = uniq([payload.title, payload.seriesName, payload.rawParams && payload.rawParams.originalTitle].filter(Boolean));
+    const aliases = [];
+    for (const term of terms.slice(0, 2)) {
+        try {
+            const searchData = await requestJsonUrl("https://api.tvmaze.com/search/shows", { q: term }, 1500);
+            const show = Array.isArray(searchData) && searchData[0] ? searchData[0].show : null;
+            if (!show || !show.id) continue;
+            aliases.push(show.name);
+            const akaData = await requestJsonUrl(`https://api.tvmaze.com/shows/${show.id}/akas`, {}, 1500);
+            if (Array.isArray(akaData)) {
+                for (const item of akaData.slice(0, 12)) aliases.push(item.name);
+            }
+        } catch (error) {
+            continue;
+        }
+    }
+    return cleanAliasList(aliases, payload);
+}
+
+async function fetchExternalAliases(payload) {
+    const settled = await Promise.allSettled([
+        fetchWikidataAliases(payload),
+        fetchTvmazeAliases(payload)
+    ]);
+    return uniq(settled.flatMap(item => item.status === "fulfilled" ? item.value : []));
+}
+
 function buildStreamPayload(params) {
     const seriesName = safeText(params.seriesName);
     const episodeName = safeText(params.episodeName);
@@ -240,6 +336,14 @@ function buildStreamPayload(params) {
     const releaseDate = safeText(params.airDate || params.premiereDate || params.releaseDate || params.date);
     const year = safeText(params.year || releaseDate.slice(0, 4));
     const explicitSeason = safeText(params.season) !== "";
+    const aliases = uniq([
+        ...parseTitleList(params.aliases),
+        ...parseTitleList(params.alternativeTitles),
+        ...parseTitleList(params.alternateTitles),
+        ...parseTitleList(params.otherTitles),
+        safeText(params.originalTitle),
+        safeText(params.originalName)
+    ]);
 
     return {
         title: title,
@@ -255,6 +359,7 @@ function buildStreamPayload(params) {
         releaseDate: releaseDate,
         dateCode: parseDateCode([episodeName, title, releaseDate].join(" ")),
         year: year,
+        aliases: aliases,
         link: safeText(params.link),
         rawParams: params || {}
     };
@@ -266,8 +371,7 @@ function buildSearchKeywords(payload) {
     const baseTitles = uniq([
         payload.seriesName,
         payload.title,
-        ...(TITLE_ALIASES[payload.seriesName] || []),
-        ...(TITLE_ALIASES[payload.title] || []),
+        ...payload.aliases,
         payload.episodeName && payload.seriesName ? payload.seriesName : "",
         payload.title.replace(/[：:]\s*.*$/g, ""),
         payload.title.replace(/[，,]\s*/g, " "),
@@ -299,10 +403,7 @@ function titleSimilarityScore(itemTitle, keyword, payload) {
     const normalizedKeyword = normalizeTitle(keyword);
     const normalizedPayloadTitle = normalizeTitle(payload.title);
     const normalizedSeries = normalizeTitle(payload.seriesName);
-    const aliasTitles = uniq([
-        ...(TITLE_ALIASES[payload.title] || []),
-        ...(TITLE_ALIASES[payload.seriesName] || [])
-    ]).map(normalizeTitle);
+    const aliasTitles = payload.aliases.map(normalizeTitle);
     let score = 0;
 
     if (!item || !normalizedKeyword) return -100;
@@ -339,11 +440,7 @@ function isTitlePolluted(item, payload) {
     const rawItemTitle = safeText(item.vod_name);
     const title = normalizeTitle(payload.title);
     const series = normalizeTitle(payload.seriesName || payload.title);
-    const aliases = uniq([
-        ...(TITLE_ALIASES[payload.title] || []),
-        ...(TITLE_ALIASES[payload.seriesName] || [])
-    ]).map(normalizeTitle);
-    const targets = uniq([title, series, ...aliases]).filter(Boolean);
+    const targets = uniq([title, series, ...payload.aliases.map(normalizeTitle)]).filter(Boolean);
 
     if (/前传|后传|外传|番外|衍生/.test(rawItemTitle) && targets.some(target => itemTitle.includes(target)) && !targets.includes(itemTitle)) return true;
     return targets.some(target => itemTitle.includes(target) && !itemTitle.startsWith(target));
@@ -443,10 +540,23 @@ async function searchCandidates(payload) {
         PRIMARY_SOURCE_IDS.map(id => searchSource(SOURCE_MAP[id], payload, keywords, 4200))
     );
     let results = primarySettled.flatMap(item => item.status === "fulfilled" ? item.value : []);
+    let searchPayload = payload;
+
+    if (results.length < 4) {
+        const externalAliases = await fetchExternalAliases(payload);
+        if (externalAliases.length) {
+            searchPayload = Object.assign({}, payload, { aliases: uniq([...(payload.aliases || []), ...externalAliases]) });
+            const aliasKeywords = buildSearchKeywords(searchPayload);
+            const aliasSettled = await Promise.allSettled(
+                PRIMARY_SOURCE_IDS.map(id => searchSource(SOURCE_MAP[id], searchPayload, aliasKeywords, 4200))
+            );
+            results = results.concat(aliasSettled.flatMap(item => item.status === "fulfilled" ? item.value : []));
+        }
+    }
 
     if (results.length < 8) {
         const fallbackSettled = await Promise.allSettled(
-            FALLBACK_SOURCE_IDS.map(id => searchSource(SOURCE_MAP[id], payload, keywords.slice(0, 3), 3200))
+            FALLBACK_SOURCE_IDS.map(id => searchSource(SOURCE_MAP[id], searchPayload, buildSearchKeywords(searchPayload).slice(0, 3), 3200))
         );
         results = results.concat(fallbackSettled.flatMap(item => item.status === "fulfilled" ? item.value : []));
     }
@@ -462,7 +572,10 @@ async function searchCandidates(payload) {
         deduped.push(result);
         if (deduped.length >= 16) break;
     }
-    return deduped;
+    return {
+        candidates: deduped,
+        payload: searchPayload
+    };
 }
 
 function parseEpisodes(playGroup) {
@@ -665,13 +778,15 @@ async function loadResource(params) {
     const payload = buildStreamPayload(params || {});
     if (!payload.title && !payload.seriesName) return [];
 
-    const candidates = await searchCandidates(payload);
+    const searchResult = await searchCandidates(payload);
+    const candidates = searchResult.candidates;
+    const resolvedPayload = searchResult.payload || payload;
     const streamGroups = await Promise.allSettled(
-        candidates.slice(0, 12).map(candidate => fetchStreamsByCandidate(candidate, payload))
+        candidates.slice(0, 12).map(candidate => fetchStreamsByCandidate(candidate, resolvedPayload))
     );
     const streams = streamGroups
         .flatMap(item => item.status === "fulfilled" ? item.value : [])
         .sort((a, b) => b.score - a.score);
 
-    return dedupeStreams(filterExactEpisodeStreams(streams, payload));
+    return dedupeStreams(filterExactEpisodeStreams(streams, resolvedPayload));
 }
