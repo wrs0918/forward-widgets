@@ -1,72 +1,53 @@
 const SOURCES = [
-    { id: "feifan", name: "非凡资源", baseUrl: "http://ffzy5.tv/api.php/provide/vod", priority: 100 },
-    { id: "ruyi", name: "如意资源", baseUrl: "https://cj.rycjapi.com/api.php/provide/vod", priority: 98 },
-    { id: "jisu", name: "极速资源", baseUrl: "https://jszyapi.com/api.php/provide/vod", priority: 96 },
-    { id: "ikun", name: "iKun资源", baseUrl: "https://ikunzyapi.com/api.php/provide/vod", priority: 94 },
-    { id: "wujin", name: "无尽资源", baseUrl: "https://api.wujinapi.com/api.php/provide/vod", priority: 92 },
-    { id: "piaoling", name: "飘零资源", baseUrl: "https://p2100.net/api.php/provide/vod", priority: 90 },
-    { id: "zuida", name: "最大资源", baseUrl: "https://api.zuidapi.com/api.php/provide/vod", priority: 89 },
-    { id: "baofeng", name: "暴风资源", baseUrl: "https://bfzyapi.com/api.php/provide/vod", priority: 86 },
-    { id: "feifanapi", name: "非凡API", baseUrl: "https://api.ffzyapi.com/api.php/provide/vod", priority: 84 },
-    { id: "wujinnet", name: "无尽NET", baseUrl: "https://api.wujinapi.net/api.php/provide/vod", priority: 83 },
-    { id: "wujincc", name: "无尽CC", baseUrl: "https://api.wujinapi.cc/api.php/provide/vod", priority: 82 },
-    { id: "dbzy", name: "豆瓣资源", baseUrl: "https://dbzy.tv/api.php/provide/vod", priority: 80 },
-    { id: "hongniu3", name: "红牛资源3", baseUrl: "https://www.hongniuzy3.com/api.php/provide/vod", priority: 78 },
-    { id: "hongniu", name: "红牛资源", baseUrl: "https://www.hongniuzy2.com/api.php/provide/vod", priority: 76 },
-    { id: "haihua", name: "海豚资源", baseUrl: "https://hhzyapi.com/api.php/provide/vod", priority: 75 },
-    { id: "subo", name: "速博资源", baseUrl: "https://subocaiji.com/api.php/provide/vod", priority: 72 },
-    { id: "aidan", name: "爱蛋资源", baseUrl: "https://lovedan.net/api.php/provide/vod", priority: 70 },
-    { id: "feifancj2", name: "非凡采集HTTPS", baseUrl: "https://cj.ffzyapi.com/api.php/provide/vod", priority: 68 },
-    { id: "guangsu", name: "光速资源", baseUrl: "https://api.guangsuapi.com/api.php/provide/vod", priority: 66 },
-    { id: "uku88", name: "U酷资源88", baseUrl: "https://api.ukuapi88.com/api.php/provide/vod", priority: 62 },
-    { id: "maotai", name: "茅台资源", baseUrl: "https://caiji.maotaizy.cc/api.php/provide/vod", priority: 50 }
+    { id: "feifan", name: "非凡资源", baseUrl: "http://ffzy5.tv/api.php/provide/vod", priority: 110, tier: "primary" },
+    { id: "ruyi", name: "如意资源", baseUrl: "https://cj.rycjapi.com/api.php/provide/vod", priority: 108, tier: "primary" },
+    { id: "jisu", name: "极速资源", baseUrl: "https://jszyapi.com/api.php/provide/vod", priority: 106, tier: "primary" },
+    { id: "ikun", name: "iKun资源", baseUrl: "https://ikunzyapi.com/api.php/provide/vod", priority: 104, tier: "primary" },
+    { id: "hongniu", name: "红牛资源", baseUrl: "https://www.hongniuzy2.com/api.php/provide/vod", priority: 102, tier: "primary" },
+    { id: "lezi", name: "乐子资源", baseUrl: "https://cj.lziapi.com/api.php/provide/vod", priority: 100, tier: "primary" },
+    { id: "haihua", name: "海豚资源", baseUrl: "https://hhzyapi.com/api.php/provide/vod", priority: 98, tier: "primary" },
+    { id: "baofeng", name: "暴风资源", baseUrl: "https://bfzyapi.com/api.php/provide/vod", priority: 96, tier: "primary" },
+    { id: "zuida", name: "最大资源", baseUrl: "https://api.zuidapi.com/api.php/provide/vod", priority: 94, tier: "primary" },
+    { id: "piaoling", name: "飘零资源", baseUrl: "https://p2100.net/api.php/provide/vod", priority: 88, tier: "fallback" },
+    { id: "feifanapi", name: "非凡API", baseUrl: "https://api.ffzyapi.com/api.php/provide/vod", priority: 86, tier: "fallback" },
+    { id: "wujin", name: "无尽资源", baseUrl: "https://api.wujinapi.com/api.php/provide/vod", priority: 76, tier: "fallback" }
 ];
 
 const SOURCE_MAP = Object.fromEntries(SOURCES.map(source => [source.id, source]));
-
-const DEFAULT_SOURCE_IDS = SOURCES
-    .slice()
-    .sort((a, b) => b.priority - a.priority)
-    .map(source => source.id);
-
-const DEFAULT_SOURCE_OPTIONS = DEFAULT_SOURCE_IDS.map(id => ({
-    title: `${SOURCE_MAP[id].priority >= 90 ? "⭐" : "•"} ${SOURCE_MAP[id].name}`,
-    value: id
-}));
+const PRIMARY_SOURCE_IDS = SOURCES.filter(source => source.tier === "primary").map(source => source.id);
+const FALLBACK_SOURCE_IDS = SOURCES.filter(source => source.tier === "fallback").map(source => source.id);
+const CHINESE_NUMBERS = {
+    "零": 0,
+    "一": 1,
+    "二": 2,
+    "两": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+    "十": 10
+};
 
 WidgetMetadata = {
-    id: "vod_max_stream_repair_20260615",
-    title: "VOD资源聚合 Auto Repair",
-    description: "支持首页浏览，也支持详情页自动资源解析",
+    id: "vod_max_stream_smart_20260615",
+    title: "VOD资源聚合",
+    description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "OpenAI x Codex",
-    version: "4.0.0",
+    version: "5.0.0",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
-    detailCacheDuration: 1800,
+    detailCacheDuration: 900,
     modules: [
         {
             id: "loadResource",
             title: "加载资源",
             functionName: "loadResource",
             type: "stream",
-            cacheDuration: 300,
-            params: []
-        },
-        {
-            title: "VOD 最新更新",
-            functionName: "loadVodList",
-            type: "list",
             cacheDuration: 180,
-            params: [
-                {
-                    name: "source",
-                    title: "默认列表源",
-                    type: "enumeration",
-                    value: DEFAULT_SOURCE_IDS[0],
-                    enumOptions: DEFAULT_SOURCE_OPTIONS
-                },
-                { name: "page", title: "页码", type: "page", startPage: 1 }
-            ]
+            params: []
         }
     ]
 };
@@ -91,35 +72,21 @@ async function requestCms(source, params, timeout) {
     const response = await Widget.http.get(source.baseUrl, {
         params: Object.assign({ out: "json" }, params),
         headers: buildHeaders(),
-        timeout: timeout || 7000
+        timeout: timeout || 4500
     });
     return parseJson(response.data);
 }
 
-function normalizeText(value) {
-    return safeText(value)
-        .replace(/（/g, "(")
-        .replace(/）/g, ")")
-        .replace(/[·•]/g, "")
-        .replace(/\s+/g, "")
-        .toLowerCase();
-}
-
-function normalizeTitle(title) {
-    return normalizeText(title)
-        .replace(/粤语版|国语版|普通话版|粤语|国语|普通话/g, "")
-        .replace(/完整版|加更版|超前营业|reaction|电影解说|预告|花絮|先导片/g, "")
-        .replace(/-普通话版|-粤语版/g, "")
-        .replace(/[「」"'`]/g, "");
-}
-
-function cleanSearchKeyword(title) {
-    return safeText(title)
-        .replace(/\s+/g, " ")
-        .replace(/[\[\(（【].*?(粤语|国语|普通话|加更|超前营业|reaction|电影解说|预告|花絮).*?[\]\)）】]/gi, "")
-        .replace(/第[一二三四五六七八九十百\d]+季/g, "")
-        .replace(/season\s*\d+/gi, "")
-        .trim();
+function uniq(values) {
+    const seen = new Set();
+    const result = [];
+    for (const value of values) {
+        const text = safeText(value);
+        if (!text || seen.has(text)) continue;
+        seen.add(text);
+        result.push(text);
+    }
+    return result;
 }
 
 function splitMultiValue(value, separator) {
@@ -129,162 +96,303 @@ function splitMultiValue(value, separator) {
         .filter(Boolean);
 }
 
-function buildLinkPayload(payload) {
-    return "vodmax::" + encodeURIComponent(JSON.stringify(payload));
-}
-
-function parseLinkPayload(link) {
-    if (!safeText(link).startsWith("vodmax::")) return null;
-    return JSON.parse(decodeURIComponent(link.slice(8)));
-}
-
 function stripHtml(text) {
     return safeText(text).replace(/<[^>]+>/g, "");
 }
 
-function isAuxiliaryTitle(title) {
-    return /(解说|预告|花絮|reaction|直拍|片花|彩蛋|直播|cut|速看|短剧)/i.test(safeText(title));
+function normalizeText(value) {
+    return safeText(value)
+        .replace(/&amp;/g, "&")
+        .replace(/（/g, "(")
+        .replace(/）/g, ")")
+        .replace(/[·•・]/g, "")
+        .replace(/\s+/g, "")
+        .toLowerCase();
 }
 
-function seasonEpisodeText(season, episode) {
-    if (!season || !episode) return "";
-    return `s${String(season).padStart(2, "0")}e${String(episode).padStart(2, "0")}`;
+function chineseNumberToInt(value) {
+    const text = safeText(value);
+    if (!text) return 0;
+    if (/^\d+$/.test(text)) return Number(text);
+    if (text === "十") return 10;
+    const tenIndex = text.indexOf("十");
+    if (tenIndex >= 0) {
+        const left = text.slice(0, tenIndex);
+        const right = text.slice(tenIndex + 1);
+        const tens = left ? (CHINESE_NUMBERS[left] || 0) : 1;
+        const ones = right ? (CHINESE_NUMBERS[right] || 0) : 0;
+        return tens * 10 + ones;
+    }
+    return CHINESE_NUMBERS[text] || 0;
 }
 
-function simplifySeriesName(seriesName) {
-    return cleanSearchKeyword(seriesName)
-        .replace(/[：:]\s*.*$/g, "")
+function seasonNumberText(number) {
+    const n = Number(number);
+    if (!n) return "";
+    const map = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
+    if (n <= 10) return map[n];
+    if (n < 20) return `十${map[n - 10]}`;
+    const tens = Math.floor(n / 10);
+    const ones = n % 10;
+    return `${map[tens]}十${ones ? map[ones] : ""}`;
+}
+
+function extractSeasonNumber(text) {
+    const value = safeText(text);
+    if (!value) return 0;
+
+    let match = value.match(/(?:第\s*)?([一二两三四五六七八九十\d]{1,3})\s*季/);
+    if (match) return chineseNumberToInt(match[1]);
+
+    match = value.match(/\bseason\s*(\d{1,2})\b/i);
+    if (match) return Number(match[1]);
+
+    match = value.match(/\bs\s*0?(\d{1,2})\b/i);
+    if (match) return Number(match[1]);
+
+    match = value.match(/([\u4e00-\u9fa5A-Za-z]{2,})(\d{1,2})(?:$|[（(])/);
+    if (match && Number(match[2]) > 1 && !/\d{4}/.test(match[0])) return Number(match[2]);
+
+    return 0;
+}
+
+function extractTrailingTitleNumber(text) {
+    const value = removeNoiseText(text)
+        .replace(/(?:第\s*)?[一二两三四五六七八九十\d]{1,3}\s*季/g, "")
+        .replace(/\bseason\s*\d{1,2}\b/gi, "")
+        .replace(/\bs\s*0?\d{1,2}\b/gi, "")
+        .trim();
+    const match = value.match(/([\u4e00-\u9fa5A-Za-z]+)(\d{1,2})(?:$|[（(])/);
+    if (match && Number(match[2]) > 1 && !/\d{4}/.test(match[0])) return Number(match[2]);
+    return 0;
+}
+
+function removeSeasonText(title) {
+    return safeText(title)
+        .replace(/(?:第\s*)?[一二两三四五六七八九十\d]{1,3}\s*季/g, "")
+        .replace(/\bseason\s*\d{1,2}\b/gi, "")
+        .replace(/\bs\s*0?\d{1,2}\b/gi, "")
+        .replace(/([\u4e00-\u9fa5A-Za-z]{2,})(\d{1,2})(?:$|[（(])/, "$1")
         .trim();
 }
 
-function buildListItem(item, source) {
-    const payload = {
-        sourceId: source.id,
-        vodId: String(item.vod_id),
-        title: safeText(item.vod_name),
-        coverUrl: safeText(item.vod_pic),
-        year: safeText(item.vod_year),
-        className: safeText(item.vod_class || item.type_name || item.vod_area),
-        remarks: safeText(item.vod_remarks),
-        searchTitle: cleanSearchKeyword(item.vod_name)
-    };
-    const link = buildLinkPayload(payload);
-    return {
-        id: link,
-        type: "link",
-        title: safeText(item.vod_name),
-        description: safeText(item.vod_remarks || item.vod_blurb || "暂无简介"),
-        coverUrl: safeText(item.vod_pic),
-        link: link,
-        subTitle: safeText(item.vod_time || source.name)
-    };
+function removeNoiseText(title) {
+    return safeText(title)
+        .replace(/&amp;/g, "&")
+        .replace(/[\[\(（【].*?(粤语|国语|普通话|加更|超前|reaction|解说|预告|花絮|片花|特辑|中字|字幕).*?[\]\)）】]/gi, "")
+        .replace(/粤语版|国语版|普通话版|粤语|国语|普通话|中字|字幕/g, "")
+        .replace(/完整版|加更版|超前营业|reaction|电影解说|预告片?|花絮|片花|先导片|制作特辑|短视频/g, "")
+        .replace(/[「」"'`]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
 }
 
-async function loadVodList(params) {
-    const source = SOURCE_MAP[params.source || DEFAULT_SOURCE_IDS[0]] || SOURCES[0];
-    const page = params.page || 1;
+function cleanSearchKeyword(title, options) {
+    const shouldRemoveSeason = !options || options.removeSeason !== false;
+    let value = removeNoiseText(title);
+    if (shouldRemoveSeason) value = removeSeasonText(value);
+    return value.replace(/[：:]\s*$/g, "").trim();
+}
 
-    try {
-        const data = await requestCms(source, { ac: "videolist", pg: page }, 6500);
-        const list = Array.isArray(data.list) ? data.list : [];
-        if (!list.length) {
-            return [{
-                id: "empty",
-                type: "text",
-                title: "当前源没有返回数据",
-                description: `${source.name} 第 ${page} 页为空，可以切换其他源`
-            }];
-        }
-        return list.map(item => buildListItem(item, source));
-    } catch (error) {
-        return [{
-            id: "error",
-            type: "text",
-            title: `请求失败: ${source.name}`,
-            description: String(error.message || error)
-        }];
-    }
+function normalizeTitle(title) {
+    return normalizeText(cleanSearchKeyword(title));
+}
+
+function isAuxiliaryTitle(title) {
+    return /(解说|预告|花絮|reaction|直拍|片花|彩蛋|直播|cut|速看|短剧|制作特辑|幕后|纪录片|trailer|少爷)/i.test(safeText(title));
+}
+
+function isLikelyVariety(payload, item) {
+    const text = [payload.title, payload.seriesName, payload.episodeName, item && item.vod_class, item && item.type_name, item && item.vod_remarks].map(safeText).join(" ");
+    return /(综艺|真人秀|脱口秀|晚会|加更|超前|会员版|演唱会|第\d+期|\d{8}期)/.test(text);
+}
+
+function isMoviePayload(payload) {
+    return payload.mediaType === "movie" || (!payload.season && !payload.episode && payload.mediaType !== "tv");
+}
+
+function parseDateCode(text) {
+    const match = safeText(text).match(/(20\d{6})/);
+    return match ? match[1] : "";
 }
 
 function buildStreamPayload(params) {
     const seriesName = safeText(params.seriesName);
-    const movieTitle = safeText(params.title || params.episodeName || params.id);
-    const isTv = safeText(params.type) === "tv";
-    const title = isTv ? (seriesName || movieTitle) : (movieTitle || seriesName);
+    const episodeName = safeText(params.episodeName);
+    const title = safeText(params.title || seriesName || episodeName || params.name || params.id);
+    const mediaType = safeText(params.type);
+    const season = safeText(params.season);
+    const episode = safeText(params.episode);
+    const seasonFromText = extractSeasonNumber([title, seriesName, episodeName].join(" "));
+    const seasonNumber = Number(season) || seasonFromText || 0;
+    const releaseDate = safeText(params.airDate || params.premiereDate || params.releaseDate || params.date);
+    const year = safeText(params.year || releaseDate.slice(0, 4));
 
     return {
         title: title,
-        searchTitle: isTv ? simplifySeriesName(title) : cleanSearchKeyword(title),
-        mediaType: safeText(params.type),
+        seriesName: seriesName,
+        episodeName: episodeName,
+        mediaType: mediaType,
         tmdbId: safeText(params.tmdbId),
         imdbId: safeText(params.imdbId),
-        season: safeText(params.season),
-        episode: safeText(params.episode),
-        seriesName: seriesName,
-        episodeName: safeText(params.episodeName),
-        link: safeText(params.link)
+        season: season,
+        seasonNumber: seasonNumber,
+        episode: episode,
+        releaseDate: releaseDate,
+        dateCode: parseDateCode([episodeName, title, releaseDate].join(" ")),
+        year: year,
+        link: safeText(params.link),
+        rawParams: params || {}
     };
 }
 
-function scoreSearchMatch(item, payload, source) {
-    const itemTitle = safeText(item.vod_name);
-    const normalizedItemTitle = normalizeTitle(itemTitle);
-    const normalizedSearchTitle = normalizeTitle(payload.searchTitle || payload.title);
-    const normalizedTitle = normalizeTitle(payload.title);
+function buildSearchKeywords(payload) {
+    const season = payload.seasonNumber;
+    const seasonChinese = seasonNumberText(season);
+    const baseTitles = uniq([
+        payload.seriesName,
+        payload.title,
+        payload.episodeName && payload.seriesName ? payload.seriesName : "",
+        payload.title.replace(/[：:]\s*.*$/g, ""),
+        payload.title.replace(/[，,]\s*/g, " ")
+    ]);
 
-    let score = source.priority || 0;
-
-    if (normalizedItemTitle === normalizedSearchTitle || normalizedItemTitle === normalizedTitle) {
-        score += 130;
-    } else if (normalizedItemTitle.startsWith(normalizedSearchTitle)) {
-        score += 95;
-    } else if (normalizedItemTitle.includes(normalizedSearchTitle)) {
-        score += 80;
-    } else if (normalizedSearchTitle.includes(normalizedItemTitle) && normalizedItemTitle.length >= 2) {
-        score += 40;
+    const keywords = [];
+    for (const title of baseTitles) {
+        const cleanWithSeason = cleanSearchKeyword(title, { removeSeason: false });
+        const cleanWithoutSeason = cleanSearchKeyword(title);
+        keywords.push(cleanWithSeason);
+        if (season > 1 && cleanWithoutSeason) {
+            keywords.push(`${cleanWithoutSeason}第${seasonChinese}季`);
+            keywords.push(`${cleanWithoutSeason}${season}`);
+        }
+        keywords.push(cleanWithoutSeason);
     }
 
-    if (payload.mediaType === "tv") {
-        const text = [item.vod_class, item.type_name, item.vod_area, item.vod_lang, item.vod_remarks].map(safeText).join(" ");
-        if (/香港|粤语|港/.test(payload.title) && /香港|粤语|港/.test(text)) score += 18;
-        if (/剧情|电视剧|香港剧/.test(text)) score += 10;
+    if (isMoviePayload(payload) && payload.title.includes("：")) {
+        keywords.push(payload.title.split("：")[0]);
     }
 
-    if (payload.mediaType === "movie") {
-        const text = [item.vod_class, item.type_name, item.vod_remarks].map(safeText).join(" ");
-        if (/电影/.test(text)) score += 8;
-    }
+    return uniq(keywords).slice(0, 6);
+}
 
-    if (isAuxiliaryTitle(itemTitle)) score -= 140;
+function titleSimilarityScore(itemTitle, keyword, payload) {
+    const item = normalizeTitle(itemTitle);
+    const normalizedKeyword = normalizeTitle(keyword);
+    const normalizedPayloadTitle = normalizeTitle(payload.title);
+    const normalizedSeries = normalizeTitle(payload.seriesName);
+    let score = 0;
+
+    if (!item || !normalizedKeyword) return -100;
+    if (item === normalizedKeyword || item === normalizedPayloadTitle || (normalizedSeries && item === normalizedSeries)) score += 170;
+    else if (item.startsWith(normalizedKeyword) || normalizedKeyword.startsWith(item)) score += 120;
+    else if (item.includes(normalizedKeyword) || normalizedKeyword.includes(item)) score += 90;
+
+    if (payload.year && safeText(itemTitle).includes(payload.year)) score += 16;
     return score;
 }
 
-async function searchCandidates(payload) {
-    const keyword = cleanSearchKeyword(payload.searchTitle || payload.title);
-    const candidateSourceIds = DEFAULT_SOURCE_IDS.slice(0, 20);
-    const settled = await Promise.allSettled(
-        candidateSourceIds.map(id => requestCms(SOURCE_MAP[id], { ac: "detail", wd: keyword }, 7000))
-    );
+function strictTitlePenalty(item, payload) {
+    const itemTitle = safeText(item.vod_name);
+    const itemNormalized = normalizeTitle(itemTitle);
+    const titleNormalized = normalizeTitle(payload.title);
+    const seriesNormalized = normalizeTitle(payload.seriesName || payload.title);
+    let penalty = 0;
 
+    if (payload.title && titleNormalized.length >= 5 && itemNormalized && itemNormalized !== titleNormalized && !itemNormalized.includes(titleNormalized)) {
+        const genericSeries = seriesNormalized && itemNormalized.includes(seriesNormalized);
+        if (!genericSeries || isMoviePayload(payload)) penalty -= 80;
+    }
+
+    const requestedTitleNumber = extractTrailingTitleNumber(payload.title || payload.seriesName);
+    const itemTitleNumber = extractTrailingTitleNumber(itemTitle);
+    if (requestedTitleNumber && itemTitleNumber && requestedTitleNumber !== itemTitleNumber) penalty -= 220;
+    if (requestedTitleNumber && !itemTitleNumber && normalizeTitle(removeSeasonText(itemTitle)) === normalizeTitle(removeSeasonText(payload.title))) penalty -= 160;
+
+    return penalty;
+}
+
+function seasonMatchScore(item, payload) {
+    if (!payload.seasonNumber || payload.seasonNumber <= 1) return 0;
+    const text = [item.vod_name, item.vod_remarks, item.vod_class, item.type_name].map(safeText).join(" ");
+    const itemSeason = extractSeasonNumber(text);
+    if (itemSeason === payload.seasonNumber) return 120;
+    if (itemSeason && itemSeason !== payload.seasonNumber) return -260;
+
+    const cleanItem = normalizeTitle(removeSeasonText(item.vod_name));
+    const cleanSeries = normalizeTitle(removeSeasonText(payload.seriesName || payload.title));
+    if (cleanItem && cleanSeries && cleanItem === cleanSeries) return -120;
+    return -35;
+}
+
+function mediaTypeScore(item, payload) {
+    const text = [item.vod_class, item.type_name, item.vod_area, item.vod_lang, item.vod_remarks, item.vod_name].map(safeText).join(" ");
+    let score = 0;
+    if (payload.mediaType === "movie" && /电影|动作|科幻|剧情|喜剧|恐怖|动画电影/.test(text)) score += 14;
+    if (payload.mediaType === "tv" && /剧|电视剧|欧美|韩国|香港|日本|动漫|动画/.test(text)) score += 12;
+    if (/香港|港剧|粤语/.test(payload.title) && /香港|港剧|粤语/.test(text)) score += 18;
+    if (isLikelyVariety(payload, item) && /综艺|真人秀|第\d+期|加更/.test(text)) score += 18;
+    return score;
+}
+
+function scoreSearchMatch(item, payload, source, keyword) {
+    if (!item || !item.vod_id || !item.vod_name) return -999;
+    const itemNormalized = normalizeTitle(item.vod_name);
+    const titleNormalized = normalizeTitle(payload.title);
+    const requestedTitleNumber = extractTrailingTitleNumber(payload.title || payload.seriesName);
+    const itemTitleNumber = extractTrailingTitleNumber(item.vod_name);
+
+    if (requestedTitleNumber && itemTitleNumber !== requestedTitleNumber) return -999;
+    if (isMoviePayload(payload) && titleNormalized.length >= 5 && itemNormalized && itemNormalized !== titleNormalized && !itemNormalized.includes(titleNormalized)) {
+        return -999;
+    }
+
+    let score = source.priority || 0;
+    score += titleSimilarityScore(item.vod_name, keyword, payload);
+    score += strictTitlePenalty(item, payload);
+    score += seasonMatchScore(item, payload);
+    score += mediaTypeScore(item, payload);
+
+    if (isAuxiliaryTitle(item.vod_name)) score -= 220;
+    if (isMoviePayload(payload) && isAuxiliaryTitle([item.vod_name, item.vod_remarks, item.vod_class].join(" "))) score -= 260;
+    return score;
+}
+
+async function searchSource(source, payload, keywords, timeout) {
     const results = [];
-    for (let index = 0; index < settled.length; index += 1) {
-        const sourceId = candidateSourceIds[index];
-        const source = SOURCE_MAP[sourceId];
-        const settledItem = settled[index];
-        if (settledItem.status !== "fulfilled") continue;
-
-        const list = Array.isArray(settledItem.value.list) ? settledItem.value.list : [];
-        for (const item of list) {
-            if (!item || !item.vod_id || !item.vod_name) continue;
-            const score = scoreSearchMatch(item, payload, source);
-            if (score < source.priority + 55) continue;
-            results.push({
-                sourceId: source.id,
-                vodId: String(item.vod_id),
-                score: score,
-                title: safeText(item.vod_name)
-            });
+    for (const keyword of keywords.slice(0, 5)) {
+        try {
+            const data = await requestCms(source, { ac: "detail", wd: keyword }, timeout);
+            const list = Array.isArray(data.list) ? data.list : [];
+            for (const item of list) {
+                const score = scoreSearchMatch(item, payload, source, keyword);
+                if (score < source.priority + 45) continue;
+                results.push({
+                    sourceId: source.id,
+                    vodId: String(item.vod_id),
+                    score: score,
+                    title: safeText(item.vod_name)
+                });
+            }
+        } catch (error) {
+            continue;
         }
+    }
+    return results;
+}
+
+async function searchCandidates(payload) {
+    const keywords = buildSearchKeywords(payload);
+    const primarySettled = await Promise.allSettled(
+        PRIMARY_SOURCE_IDS.map(id => searchSource(SOURCE_MAP[id], payload, keywords, 4200))
+    );
+    let results = primarySettled.flatMap(item => item.status === "fulfilled" ? item.value : []);
+
+    if (results.length < 8) {
+        const fallbackSettled = await Promise.allSettled(
+            FALLBACK_SOURCE_IDS.map(id => searchSource(SOURCE_MAP[id], payload, keywords.slice(0, 3), 3200))
+        );
+        results = results.concat(fallbackSettled.flatMap(item => item.status === "fulfilled" ? item.value : []));
     }
 
     results.sort((a, b) => b.score - a.score);
@@ -296,9 +404,22 @@ async function searchCandidates(payload) {
         if (seen.has(key)) continue;
         seen.add(key);
         deduped.push(result);
-        if (deduped.length >= 8) break;
+        if (deduped.length >= 16) break;
     }
     return deduped;
+}
+
+function parseEpisodes(playGroup) {
+    return splitMultiValue(playGroup, "#")
+        .map(part => {
+            const splitIndex = part.indexOf("$");
+            if (splitIndex <= 0) return null;
+            const title = safeText(part.slice(0, splitIndex)) || "正片";
+            const videoUrl = safeText(part.slice(splitIndex + 1));
+            if (!videoUrl) return null;
+            return { title, videoUrl };
+        })
+        .filter(Boolean);
 }
 
 function scorePlayGroup(groupName, groupText, episodes, source) {
@@ -306,82 +427,121 @@ function scorePlayGroup(groupName, groupText, episodes, source) {
     const sampleUrl = episodes[0] ? episodes[0].videoUrl : "";
     const text = `${groupName} ${groupText} ${sampleUrl}`.toLowerCase();
 
-    if (text.includes(".m3u8")) score += 50;
-    if (text.includes(".mp4")) score += 30;
-    if (text.includes("share/")) score -= 16;
-    if (text.includes("quark") || text.includes("aliyun") || text.includes("115") || text.includes("迅雷")) score -= 30;
-    score += episodes.length * 2;
+    if (text.includes(".m3u8")) score += 70;
+    if (text.includes(".mp4")) score += 45;
+    if (/https?:\/\//.test(text)) score += 18;
+    if (text.includes("share/")) score -= 25;
+    if (text.includes("quark") || text.includes("aliyun") || text.includes("115") || text.includes("迅雷")) score -= 45;
+    if (isAuxiliaryTitle(groupName)) score -= 120;
+    score += Math.min(episodes.length, 80);
     return score;
 }
 
 function normalizeEpisodeLabel(label) {
     return normalizeText(label)
         .replace(/第/g, "")
-        .replace(/集|话|回|期/g, "")
+        .replace(/集|话|回|期|章/g, "")
         .replace(/episode/g, "e")
-        .replace(/ep/g, "e");
+        .replace(/ep/g, "e")
+        .replace(/正片/g, "");
 }
 
-function episodeMatchScore(label, payload) {
-    if (payload.mediaType !== "tv" || !payload.episode) return 0;
-    const normalized = normalizeEpisodeLabel(label);
-    const epNum = String(Number(payload.episode));
-    const epPadded = String(payload.episode).padStart(2, "0");
-    const seText = seasonEpisodeText(payload.season, payload.episode);
+function extractNumbers(text) {
+    return (safeText(text).match(/\d+/g) || []).map(number => Number(number)).filter(Boolean);
+}
 
+function episodeMatchScore(label, payload, index, item, totalEpisodes) {
+    if (isMoviePayload(payload)) return 0;
+
+    const rawLabel = safeText(label);
+    const normalized = normalizeEpisodeLabel(rawLabel);
+    const ep = Number(payload.episode) || 0;
+    const epText = ep ? String(ep) : "";
+    const epPadded = ep ? String(ep).padStart(2, "0") : "";
+    const dateCode = payload.dateCode || parseDateCode([payload.episodeName, payload.releaseDate].join(" "));
+    const variety = isLikelyVariety(payload, item);
     let score = 0;
-    if (seText && normalized.includes(seText)) score += 120;
-    if (normalized.includes(`e${epNum}`) || normalized.includes(`e${epPadded}`)) score += 90;
-    if (normalized.includes(epNum) || normalized.includes(epPadded)) score += 35;
+
+    if (payload.seasonNumber && ep) {
+        const seText = `s${String(payload.seasonNumber).padStart(2, "0")}e${epPadded}`;
+        if (normalized.includes(seText)) score += 180;
+    }
+    if (ep && (normalized.includes(`e${epText}`) || normalized.includes(`e${epPadded}`))) score += 130;
+    if (ep && (new RegExp(`(^|[^0-9])0?${ep}([^0-9]|$)`).test(rawLabel) || normalized === epText || normalized === epPadded)) score += 85;
+    if (ep && index + 1 === ep) score += variety ? 26 : 55;
+
+    if (dateCode && rawLabel.includes(dateCode)) score += 180;
+    if (payload.episodeName) {
+        const epName = normalizeText(payload.episodeName);
+        if (epName && normalizeText(rawLabel).includes(epName)) score += 120;
+    }
+
+    if (variety) {
+        if (/加更|超前|会员|纯享|下|上|番外/.test(rawLabel) && /加更|超前|会员|纯享|下|上|番外/.test(payload.episodeName)) score += 40;
+        if (/第\d+期|\d{8}/.test(rawLabel)) score += 24;
+        if (!ep && !dateCode && totalEpisodes && index === totalEpisodes - 1) score += 8;
+    }
+
+    const numbers = extractNumbers(rawLabel);
+    if (ep && numbers.includes(ep)) score += 18;
     return score;
+}
+
+function buildStreamDescription(source, item, totalEpisodes, groupName) {
+    const bits = [];
+    bits.push(source.name);
+    if (safeText(item.vod_name)) bits.push(safeText(item.vod_name));
+    if (safeText(item.vod_remarks)) bits.push(safeText(item.vod_remarks));
+    if (safeText(groupName)) bits.push(safeText(groupName));
+    if (totalEpisodes > 1) bits.push(`共${totalEpisodes}集`);
+    return bits.join(" | ");
 }
 
 function parseEpisodeCandidates(item, source, payload) {
     const playFromList = splitMultiValue(item.vod_play_from, "$$$");
     const playUrlGroups = splitMultiValue(item.vod_play_url, "$$$");
     const candidates = [];
+    const movie = isMoviePayload(payload);
 
-    for (let index = 0; index < playUrlGroups.length; index += 1) {
-        const playGroup = playUrlGroups[index];
-        const groupName = playFromList[index] || `线路${index + 1}`;
-        const parts = splitMultiValue(playGroup, "#");
-        const episodes = [];
-
-        for (const part of parts) {
-            const splitIndex = part.indexOf("$");
-            if (splitIndex <= 0) continue;
-            const episodeTitle = safeText(part.slice(0, splitIndex));
-            const videoUrl = safeText(part.slice(splitIndex + 1));
-            if (!videoUrl) continue;
-            episodes.push({
-                title: episodeTitle || "正片",
-                videoUrl: videoUrl
-            });
-        }
-
+    for (let groupIndex = 0; groupIndex < playUrlGroups.length; groupIndex += 1) {
+        const playGroup = playUrlGroups[groupIndex];
+        const groupName = playFromList[groupIndex] || `线路${groupIndex + 1}`;
+        const episodes = parseEpisodes(playGroup);
         if (!episodes.length) continue;
 
-        if (payload.mediaType === "movie") {
-            const streamScore = scorePlayGroup(groupName, playGroup, episodes, source);
+        if (movie) {
+            const firstPlayable = episodes.find(episode => !isAuxiliaryTitle(episode.title)) || episodes[0];
             candidates.push({
                 name: `${source.name} · ${groupName}`,
                 description: buildStreamDescription(source, item, episodes.length, groupName),
-                url: episodes[0].videoUrl,
-                score: streamScore
+                url: firstPlayable.videoUrl,
+                score: scorePlayGroup(groupName, playGroup, episodes, source)
             });
             continue;
         }
 
-        for (const episode of episodes) {
-            const matchScore = episodeMatchScore(episode.title, payload);
+        let matchedAny = false;
+        for (let index = 0; index < episodes.length; index += 1) {
+            const episode = episodes[index];
+            if (isAuxiliaryTitle(episode.title) && !/加更|超前/.test(payload.episodeName)) continue;
+            const matchScore = episodeMatchScore(episode.title, payload, index, item, episodes.length);
             if (matchScore <= 0) continue;
-
-            const totalScore = scorePlayGroup(groupName, playGroup, [episode], source) + matchScore;
+            matchedAny = true;
             candidates.push({
                 name: `${source.name} · ${episode.title}`,
                 description: buildStreamDescription(source, item, episodes.length, groupName),
                 url: episode.videoUrl,
-                score: totalScore
+                score: scorePlayGroup(groupName, playGroup, [episode], source) + matchScore
+            });
+        }
+
+        if (!matchedAny && isLikelyVariety(payload, item) && payload.seasonNumber && seasonMatchScore(item, payload) > 0) {
+            const fallbackEpisode = episodes[episodes.length - 1];
+            candidates.push({
+                name: `${source.name} · ${fallbackEpisode.title}`,
+                description: buildStreamDescription(source, item, episodes.length, groupName),
+                url: fallbackEpisode.videoUrl,
+                score: scorePlayGroup(groupName, playGroup, [fallbackEpisode], source) + 8
             });
         }
     }
@@ -390,94 +550,72 @@ function parseEpisodeCandidates(item, source, payload) {
     return candidates;
 }
 
-function buildStreamDescription(source, item, totalEpisodes, groupName) {
-    const bits = [];
-    bits.push(source.name);
-    if (safeText(item.vod_remarks)) bits.push(safeText(item.vod_remarks));
-    if (safeText(groupName)) bits.push(groupName);
-    if (totalEpisodes > 1) bits.push(`共${totalEpisodes}集`);
-    return bits.join(" | ");
-}
-
 async function fetchStreamsByCandidate(candidate, payload) {
     const source = SOURCE_MAP[candidate.sourceId];
     if (!source) return [];
 
     try {
-        const data = await requestCms(source, { ac: "detail", ids: candidate.vodId }, 7000);
+        const data = await requestCms(source, { ac: "detail", ids: candidate.vodId }, 4600);
         const item = Array.isArray(data.list) ? data.list[0] : null;
-        if (!item) return [];
+        if (!item || isAuxiliaryTitle([item.vod_name, item.vod_remarks, item.vod_class].join(" "))) return [];
+        if (payload.seasonNumber > 1 && seasonMatchScore(item, payload) < 0) return [];
         return parseEpisodeCandidates(item, source, payload);
     } catch (error) {
         return [];
     }
 }
 
-async function loadResource(params) {
-    const payload = buildStreamPayload(params);
-    if (!payload.title) return [];
-
-    const candidates = await searchCandidates(payload);
-    const streamGroups = await Promise.all(candidates.slice(0, 6).map(candidate => fetchStreamsByCandidate(candidate, payload)));
-    const streams = streamGroups.flat().sort((a, b) => b.score - a.score);
-
+function dedupeStreams(streams) {
     const deduped = [];
-    const seen = new Set();
+    const seenUrls = new Set();
+    const seenNames = new Set();
     for (const stream of streams) {
-        if (!stream.url || seen.has(stream.url)) continue;
-        seen.add(stream.url);
+        if (!stream || !stream.url || seenUrls.has(stream.url)) continue;
+        const nameKey = `${stream.name}:${stream.url}`;
+        if (seenNames.has(nameKey)) continue;
+        seenUrls.add(stream.url);
+        seenNames.add(nameKey);
         deduped.push({
             name: stream.name,
             description: stream.description,
             url: stream.url
         });
-        if (deduped.length >= 12) break;
+        if (deduped.length >= 14) break;
     }
-
     return deduped;
 }
 
-async function loadDetail(link) {
-    const payload = parseLinkPayload(link);
-    if (!payload) throw new Error("详情参数无效");
+function filterExactEpisodeStreams(streams, payload) {
+    if (isMoviePayload(payload)) return streams;
 
-    const source = SOURCE_MAP[payload.sourceId];
-    if (!source) throw new Error("源配置不存在");
-
-    const data = await requestCms(source, { ac: "detail", ids: payload.vodId }, 7000);
-    const item = Array.isArray(data.list) ? data.list[0] : null;
-    if (!item) throw new Error("详情不存在");
-
-    const playFromList = splitMultiValue(item.vod_play_from, "$$$");
-    const playUrlGroups = splitMultiValue(item.vod_play_url, "$$$");
-    const episodeItems = [];
-
-    for (let index = 0; index < playUrlGroups.length; index += 1) {
-        const playGroup = playUrlGroups[index];
-        const groupName = playFromList[index] || `线路${index + 1}`;
-        const parts = splitMultiValue(playGroup, "#");
-        for (const part of parts) {
-            const splitIndex = part.indexOf("$");
-            if (splitIndex <= 0) continue;
-            const episodeTitle = safeText(part.slice(0, splitIndex));
-            const videoUrl = safeText(part.slice(splitIndex + 1));
-            if (!videoUrl) continue;
-            episodeItems.push({
-                id: `${source.id}:${videoUrl}`,
-                type: "url",
-                title: `${episodeTitle || "正片"} · ${groupName}`,
-                videoUrl: videoUrl
-            });
-        }
+    if (payload.dateCode) {
+        const exactDate = streams.filter(stream => safeText(stream.name).includes(payload.dateCode));
+        if (exactDate.length) return exactDate;
     }
 
-    return [{
-        id: link,
-        type: "link",
-        title: safeText(item.vod_name),
-        description: stripHtml(item.vod_content),
-        coverUrl: safeText(item.vod_pic),
-        genreTitle: `${safeText(item.vod_year)} • ${safeText(item.vod_class || item.vod_area || "VOD")}`,
-        episodeItems: episodeItems
-    }];
+    const episodeNumber = Number(payload.episode) || 0;
+    if (episodeNumber) {
+        const exactEpisode = streams.filter(stream => {
+            const text = `${stream.name} ${stream.description}`;
+            return new RegExp(`第0?${episodeNumber}(集|期|话|回)`).test(text) || new RegExp(`(^|[^0-9])0?${episodeNumber}([^0-9]|$)`).test(safeText(stream.name));
+        });
+        if (exactEpisode.length) return exactEpisode;
+    }
+
+    return streams;
+}
+
+async function loadResource(params) {
+    const payload = buildStreamPayload(params || {});
+    if (!payload.title && !payload.seriesName) return [];
+
+    const candidates = await searchCandidates(payload);
+    const streamGroups = await Promise.allSettled(
+        candidates.slice(0, 12).map(candidate => fetchStreamsByCandidate(candidate, payload))
+    );
+    const streams = streamGroups
+        .flatMap(item => item.status === "fulfilled" ? item.value : [])
+        .sort((a, b) => b.score - a.score);
+
+    return dedupeStreams(filterExactEpisodeStreams(streams, payload));
 }
