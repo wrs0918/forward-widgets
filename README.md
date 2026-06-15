@@ -34,6 +34,16 @@ node scripts/evaluate-sources.js
 
 脚本会用电影、港剧、综艺、美剧、英剧、韩剧、动漫关键词测试源的 JSON 可用性、响应速度、命中类型和播放地址提示。
 
+## 回归测试
+
+修改匹配规则后，先跑完整回归测试：
+
+```bash
+node scripts/test-vodmax.js
+```
+
+测试覆盖电影、续作数字、剧集跨季、国内综艺日期期/普通期/加更期，以及美剧和动漫，避免修综艺时影响其他类型。
+
 ## 如何导入到 Forward
 
 在 Forward 中添加 Widget 时，直接填入上面的 Raw 地址即可。
@@ -48,6 +58,7 @@ widgets/
     VodMax.js
 scripts/
   evaluate-sources.js
+  test-vodmax.js
 ```
 
 ## 说明

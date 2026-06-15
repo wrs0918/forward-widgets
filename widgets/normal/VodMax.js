@@ -219,8 +219,83 @@ function isMoviePayload(payload) {
 }
 
 function parseDateCode(text) {
-    const match = safeText(text).match(/(20\d{6})/);
-    return match ? match[1] : "";
+    return parseDateCodes(text)[0] || "";
+}
+
+function parseDateCodes(text) {
+    const value = safeText(text);
+    const codes = [];
+    const compactMatches = value.match(/20\d{6}/g) || [];
+    codes.push(...compactMatches);
+
+    const separatedPattern = /(20\d{2})[-/.年\s]*(\d{1,2})[-/.月\s]*(\d{1,2})日?/g;
+    let separatedMatch;
+    while ((separatedMatch = separatedPattern.exec(value))) {
+        codes.push(`${separatedMatch[1]}${separatedMatch[2].padStart(2, "0")}${separatedMatch[3].padStart(2, "0")}`);
+    }
+
+    return uniq(codes);
+}
+
+function parseMonthDayCodes(text, payload) {
+    const year = safeText(payload.year || payload.releaseDate.slice(0, 4));
+    if (!year) return [];
+    const value = safeText(text);
+    const codes = [];
+    const pattern = /(?<!\d)(\d{1,2})[-/.月](\d{1,2})日?(?!\d)/g;
+    let match;
+    while ((match = pattern.exec(value))) {
+        codes.push(`${year}${match[1].padStart(2, "0")}${match[2].padStart(2, "0")}`);
+    }
+    return uniq(codes);
+}
+
+function parseAllDateCodes(text, payload) {
+    return uniq([
+        ...parseDateCodes(text),
+        ...parseMonthDayCodes(text, payload || {})
+    ]);
+}
+
+function extractVarietyTags(text) {
+    const value = safeText(text);
+    const tags = [];
+    const patterns = [
+        ["plus", /加更|加料|衍生/g],
+        ["early", /超前|抢先|提前/g],
+        ["member", /会员|VIP|尊享/g],
+        ["pure", /纯享|纯享版/g],
+        ["part-up", /上(?:集|期|篇)?(?!海)/g],
+        ["part-down", /下(?:集|期|篇)?/g],
+        ["extra", /番外|花絮|彩蛋|未播|特辑/g]
+    ];
+    for (const [tag, pattern] of patterns) {
+        if (pattern.test(value)) tags.push(tag);
+    }
+    return uniq(tags);
+}
+
+function varietyTagScore(label, payload) {
+    const labelTags = extractVarietyTags(label);
+    const requestedTags = extractVarietyTags([payload.episodeName, payload.title].join(" "));
+    if (!labelTags.length && !requestedTags.length) return 28;
+    if (!labelTags.length && requestedTags.length) return -45;
+    if (labelTags.length && !requestedTags.length) return -90;
+
+    let score = 0;
+    for (const tag of requestedTags) {
+        score += labelTags.includes(tag) ? 50 : -35;
+    }
+    for (const tag of labelTags) {
+        if (!requestedTags.includes(tag)) score -= 20;
+    }
+    return score;
+}
+
+function episodeHasRequestedDate(label, payload) {
+    if (!payload.dateCodes || !payload.dateCodes.length) return false;
+    const labelDateCodes = parseAllDateCodes(label, payload);
+    return payload.dateCodes.some(code => labelDateCodes.includes(code));
 }
 
 function parseTitleList(value) {
@@ -358,6 +433,9 @@ function buildStreamPayload(params) {
         episode: episode,
         releaseDate: releaseDate,
         dateCode: parseDateCode([episodeName, title, releaseDate].join(" ")),
+        dateCodes: parseAllDateCodes([episodeName, title, releaseDate].join(" "), { year: year, releaseDate: releaseDate }),
+        varietyTags: extractVarietyTags([episodeName, title].join(" ")),
+        isVariety: /(综艺|真人秀|脱口秀|晚会|演唱会|加更|超前|会员版|纯享|第\d+期|\d{8}期)/.test([title, seriesName, episodeName].join(" ")),
         year: year,
         aliases: aliases,
         link: safeText(params.link),
@@ -619,6 +697,20 @@ function extractNumbers(text) {
     return (safeText(text).match(/\d+/g) || []).map(number => Number(number)).filter(Boolean);
 }
 
+function episodeNumberMatches(label, episodeNumber) {
+    const ep = Number(episodeNumber) || 0;
+    if (!ep) return false;
+    const text = safeText(label);
+    const normalized = normalizeEpisodeLabel(text);
+    const padded = String(ep).padStart(2, "0");
+    return new RegExp(`第0?${ep}(集|期|话|回)`).test(text)
+        || new RegExp(`(^|[^0-9])0?${ep}([^0-9]|$)`).test(text)
+        || normalized === String(ep)
+        || normalized === padded
+        || normalized.includes(`e${ep}`)
+        || normalized.includes(`e${padded}`);
+}
+
 function episodeMatchScore(label, payload, index, item, totalEpisodes) {
     if (isMoviePayload(payload)) return 0;
 
@@ -627,7 +719,7 @@ function episodeMatchScore(label, payload, index, item, totalEpisodes) {
     const ep = Number(payload.episode) || 0;
     const epText = ep ? String(ep) : "";
     const epPadded = ep ? String(ep).padStart(2, "0") : "";
-    const dateCode = payload.dateCode || parseDateCode([payload.episodeName, payload.releaseDate].join(" "));
+    const hasRequestedDate = episodeHasRequestedDate(rawLabel, payload);
     const variety = isLikelyVariety(payload, item);
     let score = 0;
 
@@ -636,19 +728,20 @@ function episodeMatchScore(label, payload, index, item, totalEpisodes) {
         if (normalized.includes(seText)) score += 180;
     }
     if (ep && (normalized.includes(`e${epText}`) || normalized.includes(`e${epPadded}`))) score += 130;
-    if (ep && (new RegExp(`(^|[^0-9])0?${ep}([^0-9]|$)`).test(rawLabel) || normalized === epText || normalized === epPadded)) score += 85;
-    if (ep && index + 1 === ep) score += variety ? 26 : 55;
+    if (ep && episodeNumberMatches(rawLabel, ep)) score += 100;
+    if (ep && index + 1 === ep) score += variety ? 12 : 55;
 
-    if (dateCode && rawLabel.includes(dateCode)) score += 180;
+    if (hasRequestedDate) score += variety ? 260 : 180;
     if (payload.episodeName) {
         const epName = normalizeText(payload.episodeName);
         if (epName && normalizeText(rawLabel).includes(epName)) score += 120;
     }
 
     if (variety) {
-        if (/加更|超前|会员|纯享|下|上|番外/.test(rawLabel) && /加更|超前|会员|纯享|下|上|番外/.test(payload.episodeName)) score += 40;
+        score += varietyTagScore(rawLabel, payload);
+        if (payload.dateCodes && payload.dateCodes.length && !hasRequestedDate) score -= 180;
         if (/第\d+期|\d{8}/.test(rawLabel)) score += 24;
-        if (!ep && !dateCode && totalEpisodes && index === totalEpisodes - 1) score += 8;
+        if (!ep && !(payload.dateCodes && payload.dateCodes.length) && totalEpisodes && index === totalEpisodes - 1) score += 8;
     }
 
     const numbers = extractNumbers(rawLabel);
@@ -704,7 +797,7 @@ function parseEpisodeCandidates(item, source, payload) {
             });
         }
 
-        if (!matchedAny && isLikelyVariety(payload, item) && payload.seasonNumber && seasonMatchScore(item, payload) > 0) {
+        if (!matchedAny && isLikelyVariety(payload, item) && payload.seasonNumber && seasonMatchScore(item, payload) > 0 && !(payload.dateCodes && payload.dateCodes.length)) {
             const fallbackEpisode = episodes[episodes.length - 1];
             candidates.push({
                 name: `${source.name} · ${fallbackEpisode.title}`,
@@ -756,22 +849,40 @@ function dedupeStreams(streams) {
 
 function filterExactEpisodeStreams(streams, payload) {
     if (isMoviePayload(payload)) return streams;
+    let filteredStreams = streams;
 
-    if (payload.dateCode) {
-        const exactDate = streams.filter(stream => safeText(stream.name).includes(payload.dateCode));
+    if (payload.dateCodes && payload.dateCodes.length) {
+        const exactDate = filteredStreams.filter(stream => episodeHasRequestedDate(`${stream.name} ${stream.description}`, payload));
         if (exactDate.length) return exactDate;
     }
 
+    if (payload.isVariety && payload.varietyTags && payload.varietyTags.length) {
+        const exactTags = filteredStreams.filter(stream => {
+            const tags = extractVarietyTags(`${stream.name} ${stream.description}`);
+            return payload.varietyTags.every(tag => tags.includes(tag));
+        });
+        if (exactTags.length) filteredStreams = exactTags;
+    } else if (payload.isVariety) {
+        const plainStreams = filteredStreams.filter(stream => !extractVarietyTags(`${stream.name} ${stream.description}`).length);
+        if (plainStreams.length) filteredStreams = plainStreams;
+    }
+
     const episodeNumber = Number(payload.episode) || 0;
+    if (payload.isVariety && episodeNumber) {
+        const exactVarietyEpisode = filteredStreams.filter(stream => episodeNumberMatches(stream.name, episodeNumber));
+        if (exactVarietyEpisode.length) return exactVarietyEpisode;
+        if (payload.varietyTags && payload.varietyTags.length) return [];
+    }
+
     if (episodeNumber) {
-        const exactEpisode = streams.filter(stream => {
+        const exactEpisode = filteredStreams.filter(stream => {
             const text = `${stream.name} ${stream.description}`;
-            return new RegExp(`第0?${episodeNumber}(集|期|话|回)`).test(text) || new RegExp(`(^|[^0-9])0?${episodeNumber}([^0-9]|$)`).test(safeText(stream.name));
+            return episodeNumberMatches(text, episodeNumber);
         });
         if (exactEpisode.length) return exactEpisode;
     }
 
-    return streams;
+    return filteredStreams;
 }
 
 async function loadResource(params) {
