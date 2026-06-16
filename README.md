@@ -16,9 +16,13 @@ https://raw.githubusercontent.com/wrs0918/forward-widgets/main/widgets/normal/Vo
 
 ### Forward MSaber Adapter
 
-路径：`msaber-adapter/`
+独立项目：
 
-用于把 Forward 的 MoviePilot 风格服务器订阅请求转接到 MSaber。支持 Docker 部署到 NAS，先用 dry-run 记录 Forward 请求，再按 MSaber 实际订阅接口配置转发。
+```text
+https://github.com/wrs0918/forward-msaber-adapter
+```
+
+用于把 Forward 的 MoviePilot 风格服务器订阅请求转接到 MSaber，支持 Docker 部署到 NAS。
 
 ## 这个版本做了什么
 
