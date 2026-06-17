@@ -24,6 +24,18 @@ https://github.com/wrs0918/forward-msaber-adapter
 
 用于把 Forward 的 MoviePilot 风格服务器订阅请求转接到 MSaber，支持 Docker 部署到 NAS。
 
+### Forward Params Debug
+
+路径：`widgets/normal/ForwardParamsDebug.js`
+
+Raw 地址：
+
+```text
+https://raw.githubusercontent.com/wrs0918/forward-widgets/main/widgets/normal/ForwardParamsDebug.js
+```
+
+这是临时调试用资源模块，不查 VOD 源，只把 Forward 详情页实际传给 `stream` 模块的 `params` 字段显示成资源项。遇到季集/综艺匹配异常时，可以临时导入这个 Widget，在同一个详情页查看 `episodeName/title/seriesName/season/episode/airDate/runtime` 等字段实际是什么。
+
 ## 这个版本做了什么
 
 当前这版 `VodMax.js` 是纯资源模块，重点优化了这些问题：
@@ -72,6 +84,16 @@ node scripts/compare-anime-matching.js
 
 脚本会展示新番别名、长篇动漫全局集数、第 0 季/OVA 的搜索关键词、匹配模式和最终资源。
 
+## Forward 参数调试
+
+如果某个详情页仍然出现错配，可以临时导入调试 Widget：
+
+```text
+https://raw.githubusercontent.com/wrs0918/forward-widgets/main/widgets/normal/ForwardParamsDebug.js
+```
+
+然后打开同一个影片/剧集详情页，在资源列表里查看 `Forward参数调试 · 字段摘要` 和 `Forward参数调试 · JSON`。重点看这些字段是否存在以及内容是什么：`episodeName`、`episodeTitle`、`title`、`seriesName`、`season`、`episode`、`airDate`、`runtime`。调试完建议停用或删除这个 Widget，避免资源列表里一直显示调试项。
+
 ## 如何导入到 Forward
 
 在 Forward 中添加 Widget 时，直接填入上面的 Raw 地址即可。
@@ -93,6 +115,7 @@ node scripts/compare-anime-matching.js
 widgets/
   normal/
     VodMax.js
+    ForwardParamsDebug.js
 scripts/
   evaluate-sources.js
   test-vodmax.js
