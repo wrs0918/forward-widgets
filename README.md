@@ -54,6 +54,14 @@ node scripts/test-vodmax.js
 
 测试覆盖电影、续作数字、剧集跨季、国内综艺日期期/普通期/加更期，以及美剧和动漫，避免修综艺时影响其他类型。
 
+国内综艺命名对照可以用下面的只读脚本查看：
+
+```bash
+node scripts/compare-variety-identity.js
+```
+
+脚本会把爱奇艺、腾讯视频、优酷、芒果 TV、B站常见节目单命名样式，以及 VOD 源播放列表标签，统一输出成日期、期号、上下篇和正片/加更/纯享/超前等期身份字段。
+
 ## 如何导入到 Forward
 
 在 Forward 中添加 Widget 时，直接填入上面的 Raw 地址即可。

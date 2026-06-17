@@ -52,6 +52,26 @@ function assertNoneInclude(streams, pattern, label) {
     assert(!failed.length, `${label}: forbidden streams:\n${failed.map(stream => `${stream.name} | ${stream.description}`).join("\n")}`);
 }
 
+function assertIdentity(text, expected, label) {
+    const identity = context.buildEpisodeIdentity(text, { year: "2026", releaseDate: "2026-06-12" });
+    for (const [key, value] of Object.entries(expected)) {
+        if (key === "dateCode") {
+            assert(identity.dateCodes.includes(value), `${label}: expected date ${value}, got ${identity.dateCodes.join(",")}`);
+            continue;
+        }
+        assert(identity[key] === value, `${label}: expected ${key}=${value}, got ${identity[key]}`);
+    }
+}
+
+const OFFICIAL_STYLE_CASES = [
+    ["iqiyi normal part", "06-12 第9期: 下", { dateCode: "20260612", issueNumber: 9, part: "down", kind: "normal" }],
+    ["iqiyi special plus", "20260517特别加更上", { dateCode: "20260517", part: "up", kind: "plus" }],
+    ["tencent plus", "第1期 万事屋加更", { issueNumber: 1, kind: "plus" }],
+    ["youku pure", "第3期纯享版：舞台完整版", { issueNumber: 3, kind: "pure" }],
+    ["mgtv early", "超前营业第5期", { issueNumber: 5, kind: "early" }],
+    ["bilibili part", "第2期（上）", { issueNumber: 2, part: "up", kind: "normal" }]
+];
+
 const CASES = [
     {
         label: "movie exact title",
@@ -95,8 +115,8 @@ const CASES = [
         label: "variety normal episode",
         params: { type: "tv", title: "种地吧", seriesName: "种地吧", season: 2, episode: 5, episodeName: "第5期" },
         validate(streams) {
-            assertAllInclude(streams, /种地吧\s*第二季/, this.label);
-            assertAllInclude(streams, /第0?5期/, this.label);
+            assertAllInclude(streams, /种地吧\s*第二季|种地吧2/, this.label);
+            assertAllInclude(streams, /第0?5[期集]/, this.label);
             assertNoneInclude(streams, /加更|超前|纯享|会员|番外/, this.label);
         }
     },
@@ -104,10 +124,37 @@ const CASES = [
         label: "variety plus episode",
         params: { type: "tv", title: "种地吧", seriesName: "种地吧", season: 2, episode: 5, episodeName: "加更版第5期" },
         validate(streams) {
-            if (!streams.length) return;
-            assertAllInclude(streams, /种地吧\s*第二季/, this.label);
+            assert(streams.length > 0, `${this.label}: expected plus streams`);
+            assertAllInclude(streams, /种地吧\s*第二季|种地吧2/, this.label);
             assertAllInclude(streams, /加更.*第0?5期|第0?5期.*加更/, this.label);
             assertNoneInclude(streams, /加更.*第(?!0?5期)\d+期/, this.label);
+        }
+    },
+    {
+        label: "domestic variety date and part",
+        params: { type: "tv", title: "种地吧", seriesName: "种地吧", season: 4, episodeName: "第9期上", airDate: "2026-06-11" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllInclude(streams, /20260611|第0?9期.*上|上.*第0?9期/, this.label);
+            assertNoneInclude(streams.map(stream => ({ name: stream.name, description: "" })), /加更|纯享|花絮|预告|解说|短视频/, this.label);
+        }
+    },
+    {
+        label: "domestic variety special season plus",
+        params: { type: "tv", title: "种地吧", seriesName: "种地吧", season: 0, episodeName: "特别加更上", airDate: "2026-05-17" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllInclude(streams, /20260517|特别加更|加更/, this.label);
+            assertNoneInclude(streams, /第0?1期上|第0?2期上|纯享|预告|解说/, this.label);
+        }
+    },
+    {
+        label: "domestic variety pure episode",
+        params: { type: "tv", title: "歌手2024", seriesName: "歌手2024", episodeName: "纯享版第5期" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllInclude(streams, /纯享.*第0?5期|第0?5期.*纯享/, this.label);
+            assertNoneInclude(streams, /超前|加更|花絮|预告|解说/, this.label);
         }
     },
     {
@@ -129,6 +176,11 @@ const CASES = [
 ];
 
 (async () => {
+    for (const [label, text, expected] of OFFICIAL_STYLE_CASES) {
+        assertIdentity(text, expected, label);
+        console.log(`PASS official style ${label}`);
+    }
+
     for (const testCase of CASES) {
         const startedAt = Date.now();
         const streams = await context.loadResource(testCase.params);

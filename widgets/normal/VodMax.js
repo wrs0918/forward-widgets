@@ -36,7 +36,7 @@ WidgetMetadata = {
     title: "VOD资源聚合",
     description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "工位划水冠军",
-    version: "5.0.0",
+    version: "5.1.0",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 900,
@@ -155,7 +155,7 @@ function extractSeasonNumber(text) {
     match = value.match(/\bs\s*0?(\d{1,2})\b/i);
     if (match) return Number(match[1]);
 
-    match = value.match(/([\u4e00-\u9fa5A-Za-z]{2,})(\d{1,2})(?:$|[（(])/);
+    match = value.match(/([\u4e00-\u9fa5A-Za-z]{2,})\s*(\d{1,2})(?:$|\s|[（(])/);
     if (match && Number(match[2]) > 1 && !/\d{4}/.test(match[0])) return Number(match[2]);
 
     return 0;
@@ -177,7 +177,7 @@ function removeSeasonText(title) {
         .replace(/(?:第\s*)?[一二两三四五六七八九十\d]{1,3}\s*季/g, "")
         .replace(/\bseason\s*\d{1,2}\b/gi, "")
         .replace(/\bs\s*0?\d{1,2}\b/gi, "")
-        .replace(/([\u4e00-\u9fa5A-Za-z]{2,})(\d{1,2})(?:$|[（(])/, "$1")
+        .replace(/([\u4e00-\u9fa5A-Za-z]{2,})\s*(\d{1,2})(?:$|\s|[（(])/, "$1")
         .trim();
 }
 
@@ -238,7 +238,7 @@ function parseDateCodes(text) {
 }
 
 function parseMonthDayCodes(text, payload) {
-    const year = safeText(payload.year || payload.releaseDate.slice(0, 4));
+    const year = safeText(payload.year || safeText(payload.releaseDate).slice(0, 4));
     if (!year) return [];
     const value = safeText(text);
     const codes = [];
@@ -266,8 +266,12 @@ function extractVarietyTags(text) {
         ["member", /会员|VIP|尊享/g],
         ["pure", /纯享|纯享版/g],
         ["part-up", /上(?:集|期|篇)?(?!海)/g],
+        ["part-mid", /中(?:集|期|篇)?/g],
         ["part-down", /下(?:集|期|篇)?/g],
-        ["extra", /番外|花絮|彩蛋|未播|特辑/g]
+        ["special", /序|先导|特别|番外|外传|特辑|发布会|大赏/g],
+        ["behind", /花絮|彩蛋|未播|幕后|采访|专访|存档|副本解锁|补给站/g],
+        ["trailer", /预告|trailer/g],
+        ["cut", /cut|短视频|速看|直拍|reaction|解说/g]
     ];
     for (const [tag, pattern] of patterns) {
         if (pattern.test(value)) tags.push(tag);
@@ -296,6 +300,158 @@ function episodeHasRequestedDate(label, payload) {
     if (!payload.dateCodes || !payload.dateCodes.length) return false;
     const labelDateCodes = parseAllDateCodes(label, payload);
     return payload.dateCodes.some(code => labelDateCodes.includes(code));
+}
+
+function extractVarietyKind(text) {
+    const value = safeText(text);
+    if (/预告|trailer/i.test(value)) return "trailer";
+    if (/解说|reaction|速看|短视频|直拍|\bcut\b/i.test(value)) return "cut";
+    if (/加更|加料|万事屋|推门加更|特别加更|补给站加更/.test(value)) return "plus";
+    if (/超前|抢先|提前|超前营业/.test(value)) return "early";
+    if (/纯享|剧情纯享|纯享版|纯享典藏/.test(value)) return "pure";
+    if (/会员|VIP|尊享/.test(value)) return "member";
+    if (/花絮|幕后|彩蛋|未播|采访|专访|存档|副本解锁|补给站|迷妹|居民采访/.test(value)) return "behind";
+    if (/序篇?|先导片?|特别|番外|外传|特辑|发布会|大赏|端午企划|端午特辑|游戏特辑/.test(value)) return "special";
+    return "normal";
+}
+
+function extractVarietyPart(text) {
+    const value = safeText(text);
+    if (/(^|[^上海])上(?:集|期|篇)?(?:$|[^海])/.test(value) || /[(（:]上[)）]?/.test(value)) return "up";
+    if (/中(?:集|期|篇)?/.test(value) || /[(（:]中[)）]?/.test(value)) return "mid";
+    if (/下(?:集|期|篇)?/.test(value) || /[(（:]下[)）]?/.test(value)) return "down";
+    return "";
+}
+
+function extractIssueNumber(text) {
+    const value = safeText(text).replace(/20\d{6}/g, " ");
+    const patterns = [
+        /第\s*0?(\d{1,3})\s*期/,
+        /第\s*([一二两三四五六七八九十]{1,3})\s*期/,
+        /(?:^|[^\d])0?(\d{1,3})\s*期/,
+        /(?:^|[^\d])0?(\d{1,3})\s*[(（:]?[上下中][)）]?/,
+        /第\s*0?(\d{1,3})\s*集/
+    ];
+    for (const pattern of patterns) {
+        const match = value.match(pattern);
+        if (!match) continue;
+        const number = chineseNumberToInt(match[1]);
+        if (number > 0 && number < 200) return number;
+    }
+    return 0;
+}
+
+function extractIdentityTokens(text) {
+    const value = safeText(text)
+        .replace(/20\d{6}/g, " ")
+        .replace(/(?:20\d{2})[-/.年\s]*\d{1,2}[-/.月\s]*\d{1,2}日?/g, " ")
+        .replace(/\d{1,2}[-/.月]\d{1,2}日?/g, " ")
+        .replace(/第\s*[一二两三四五六七八九十\d]{1,3}\s*(?:期|集|话|回)/g, " ")
+        .replace(/[上下中](?:集|期|篇)?/g, " ")
+        .replace(/正片|完整版|加更版|纯享版|会员版|超前营业|先导片?|序篇?|特别加更|特别|番外|外传|花絮|彩蛋|幕后|未播|采访|专访|存档|副本解锁中?|补给站|万事屋|迷妹|居民采访|发布会|大赏|特辑|端午企划|端午特辑|游戏特辑|预告|解说|reaction|短视频|速看|直拍|cut/gi, " ")
+        .replace(/[^\u4e00-\u9fa5A-Za-z0-9]+/g, " ");
+    return uniq(value.split(/\s+/).map(part => part.trim()).filter(part => part.length >= 2 && part.length <= 12));
+}
+
+function buildEpisodeIdentity(text, payload) {
+    const value = safeText(text);
+    return {
+        dateCodes: parseAllDateCodes(value, payload || {}),
+        issueNumber: extractIssueNumber(value),
+        part: extractVarietyPart(value),
+        kind: extractVarietyKind(value),
+        titleTokens: extractIdentityTokens(value),
+        seasonNumber: extractSeasonNumber(value),
+        isAuxiliary: isAuxiliaryTitle(value)
+    };
+}
+
+function isDomesticVariety(payload, item) {
+    const text = [payload.title, payload.seriesName, payload.episodeName, item && item.vod_class, item && item.type_name, item && item.vod_area, item && item.vod_remarks].map(safeText).join(" ");
+    if (/(大陆综艺|内地综艺|国产综艺|大陆|内地|中国)/.test(text) && /(综艺|真人秀|脱口秀|晚会|演唱会|第\d+期|\d{8}|加更|纯享|超前)/.test(text)) return true;
+    return /[\u4e00-\u9fa5]/.test(text) && /(综艺|真人秀|脱口秀|晚会|演唱会|第\d+期|\d{8}期|加更|纯享|超前|会员版|先导|花絮|番外|上期|下期)/.test(text);
+}
+
+function buildRequestedEpisodeIdentity(payload) {
+    const text = [payload.episodeName || payload.title, payload.releaseDate].join(" ");
+    const identity = buildEpisodeIdentity(text, payload);
+    if (!identity.issueNumber && Number(payload.episode) > 0 && !(identity.dateCodes && identity.dateCodes.length)) {
+        identity.issueNumber = Number(payload.episode);
+    }
+    return identity;
+}
+
+function hasReliableVarietyIdentity(identity) {
+    return Boolean(identity && ((identity.dateCodes && identity.dateCodes.length) || identity.kind !== "normal" || identity.part || identity.titleTokens.length));
+}
+
+function titleTokenOverlapScore(requestedTokens, labelTokens) {
+    if (!requestedTokens.length || !labelTokens.length) return 0;
+    let score = 0;
+    for (const token of requestedTokens) {
+        if (labelTokens.some(labelToken => labelToken.includes(token) || token.includes(labelToken))) score += 18;
+    }
+    return Math.min(score, 72);
+}
+
+function varietyIdentityScore(label, payload, item, index) {
+    if (!isDomesticVariety(payload, item)) return null;
+
+    const requested = payload.episodeIdentity || buildRequestedEpisodeIdentity(payload);
+    const labelIdentity = buildEpisodeIdentity(label, payload);
+    const ep = Number(payload.episode) || 0;
+    let score = 0;
+
+    if (requested.dateCodes.length) {
+        const dateMatched = requested.dateCodes.some(code => labelIdentity.dateCodes.includes(code));
+        if (dateMatched) score += 360;
+        else if (labelIdentity.dateCodes.length) score -= 460;
+        else score -= 180;
+    }
+
+    if (requested.kind !== "normal") {
+        score += labelIdentity.kind === requested.kind ? 150 : -190;
+    } else if (labelIdentity.kind !== "normal") {
+        score -= 140;
+    } else {
+        score += 60;
+    }
+
+    if (requested.part) {
+        score += labelIdentity.part === requested.part ? 90 : -110;
+    } else if (labelIdentity.part) {
+        score -= 12;
+    }
+
+    score += titleTokenOverlapScore(requested.titleTokens, labelIdentity.titleTokens);
+
+    if (requested.issueNumber && labelIdentity.issueNumber) {
+        score += requested.issueNumber === labelIdentity.issueNumber ? 120 : -240;
+    } else if (!hasReliableVarietyIdentity(requested) && ep && index + 1 === ep) {
+        score += 16;
+    }
+
+    if (labelIdentity.dateCodes.length) score += 18;
+    if (/第\d+期|\d{8}|正片/.test(label)) score += 14;
+    if (labelIdentity.isAuxiliary && requested.kind === "normal") score -= 160;
+    return score;
+}
+
+function varietyIdentityMatchesStream(stream, payload) {
+    if (!payload.isVariety || !(payload.episodeIdentity || payload.domesticVariety)) return true;
+    const requested = payload.episodeIdentity || buildRequestedEpisodeIdentity(payload);
+    const text = stream.name;
+    const identity = buildEpisodeIdentity(text, payload);
+
+    if (requested.dateCodes.length) {
+        return requested.dateCodes.some(code => identity.dateCodes.includes(code));
+    }
+    if (requested.kind !== "normal" && identity.kind !== requested.kind) return false;
+    if (requested.kind === "normal" && identity.kind !== "normal") return false;
+    if (requested.part && identity.part && requested.part !== identity.part) return false;
+    if (requested.issueNumber && identity.issueNumber && requested.issueNumber !== identity.issueNumber) return false;
+    if (requested.kind !== "normal" && requested.issueNumber && !identity.issueNumber) return false;
+    return true;
 }
 
 function parseTitleList(value) {
@@ -420,7 +576,7 @@ function buildStreamPayload(params) {
         safeText(params.originalName)
     ]);
 
-    return {
+    const payload = {
         title: title,
         seriesName: seriesName,
         episodeName: episodeName,
@@ -441,6 +597,9 @@ function buildStreamPayload(params) {
         link: safeText(params.link),
         rawParams: params || {}
     };
+    payload.episodeIdentity = buildRequestedEpisodeIdentity(payload);
+    payload.domesticVariety = isDomesticVariety(payload, null);
+    return payload;
 }
 
 function buildSearchKeywords(payload) {
@@ -722,6 +881,12 @@ function episodeMatchScore(label, payload, index, item, totalEpisodes) {
     const hasRequestedDate = episodeHasRequestedDate(rawLabel, payload);
     const variety = isLikelyVariety(payload, item);
     let score = 0;
+    const identityScore = varietyIdentityScore(rawLabel, payload, item, index);
+
+    if (identityScore !== null) {
+        if (payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity)) return identityScore;
+        score += identityScore;
+    }
 
     if (payload.seasonNumber && ep) {
         const seText = `s${String(payload.seasonNumber).padStart(2, "0")}e${epPadded}`;
@@ -738,8 +903,8 @@ function episodeMatchScore(label, payload, index, item, totalEpisodes) {
     }
 
     if (variety) {
-        score += varietyTagScore(rawLabel, payload);
-        if (payload.dateCodes && payload.dateCodes.length && !hasRequestedDate) score -= 180;
+        if (identityScore === null) score += varietyTagScore(rawLabel, payload);
+        if (payload.dateCodes && payload.dateCodes.length && !hasRequestedDate) score -= 260;
         if (/第\d+期|\d{8}/.test(rawLabel)) score += 24;
         if (!ep && !(payload.dateCodes && payload.dateCodes.length) && totalEpisodes && index === totalEpisodes - 1) score += 8;
     }
@@ -785,7 +950,7 @@ function parseEpisodeCandidates(item, source, payload) {
         let matchedAny = false;
         for (let index = 0; index < episodes.length; index += 1) {
             const episode = episodes[index];
-            if (isAuxiliaryTitle(episode.title) && !/加更|超前/.test(payload.episodeName)) continue;
+            if (isAuxiliaryTitle(episode.title) && extractVarietyKind(payload.episodeName) === "normal") continue;
             const matchScore = episodeMatchScore(episode.title, payload, index, item, episodes.length);
             if (matchScore <= 0) continue;
             matchedAny = true;
@@ -797,7 +962,7 @@ function parseEpisodeCandidates(item, source, payload) {
             });
         }
 
-        if (!matchedAny && isLikelyVariety(payload, item) && payload.seasonNumber && seasonMatchScore(item, payload) > 0 && !(payload.dateCodes && payload.dateCodes.length)) {
+        if (!matchedAny && isLikelyVariety(payload, item) && payload.seasonNumber && seasonMatchScore(item, payload) > 0 && !(payload.dateCodes && payload.dateCodes.length) && !(payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity))) {
             const fallbackEpisode = episodes[episodes.length - 1];
             candidates.push({
                 name: `${source.name} · ${fallbackEpisode.title}`,
@@ -850,6 +1015,12 @@ function dedupeStreams(streams) {
 function filterExactEpisodeStreams(streams, payload) {
     if (isMoviePayload(payload)) return streams;
     let filteredStreams = streams;
+
+    if (payload.domesticVariety || (payload.isVariety && payload.episodeIdentity)) {
+        const identityStreams = filteredStreams.filter(stream => varietyIdentityMatchesStream(stream, payload));
+        if (identityStreams.length) filteredStreams = identityStreams;
+        if (payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity)) return filteredStreams;
+    }
 
     if (payload.dateCodes && payload.dateCodes.length) {
         const exactDate = filteredStreams.filter(stream => episodeHasRequestedDate(`${stream.name} ${stream.description}`, payload));
