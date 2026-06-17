@@ -36,7 +36,7 @@ WidgetMetadata = {
     title: "VOD资源聚合",
     description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "工位划水冠军",
-    version: "5.3.0",
+    version: "5.3.1",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 900,
@@ -465,7 +465,8 @@ function buildEpisodeIdentity(text, payload) {
         titleTokens: extractIdentityTokens(value),
         seasonNumber: extractSeasonNumber(value),
         isAuxiliary: isAuxiliaryTitle(value),
-        usedEpisodeFallback: false
+        usedEpisodeFallback: false,
+        fromEpisodeName: false
     };
 }
 
@@ -475,9 +476,19 @@ function isDomesticVariety(payload, item) {
     return /[\u4e00-\u9fa5]/.test(text) && /(综艺|真人秀|脱口秀|晚会|演唱会|第\d+期|\d{8}期|加更|纯享|超前|会员版|先导|花絮|番外|上期|下期)/.test(text);
 }
 
+function hasExplicitEpisodeMarker(identity) {
+    return Boolean(identity && ((identity.dateCodes && identity.dateCodes.length) || identity.kind !== "normal" || identity.part || identity.issueNumber));
+}
+
+function hasExplicitEpisodeMarkerText(text, payload) {
+    return hasExplicitEpisodeMarker(buildEpisodeIdentity(text, payload || {}));
+}
+
 function buildRequestedEpisodeIdentity(payload) {
-    const text = [payload.episodeName || payload.title, payload.releaseDate].join(" ");
+    const fallbackTitle = hasExplicitEpisodeMarkerText(payload.title, payload) ? payload.title : "";
+    const text = [payload.episodeName || fallbackTitle, payload.releaseDate].join(" ");
     const identity = buildEpisodeIdentity(text, payload);
+    identity.fromEpisodeName = Boolean(payload.episodeName || fallbackTitle);
     if (!identity.issueNumber && Number(payload.episode) > 0 && !hasReliableVarietyIdentity(identity)) {
         identity.issueNumber = Number(payload.episode);
         identity.usedEpisodeFallback = true;
@@ -486,7 +497,7 @@ function buildRequestedEpisodeIdentity(payload) {
 }
 
 function hasReliableVarietyIdentity(identity) {
-    return Boolean(identity && ((identity.dateCodes && identity.dateCodes.length) || identity.kind !== "normal" || identity.part || identity.titleTokens.length || (identity.issueNumber && !identity.usedEpisodeFallback)));
+    return Boolean(identity && ((identity.dateCodes && identity.dateCodes.length) || identity.kind !== "normal" || identity.part || (identity.titleTokens.length && identity.fromEpisodeName) || (identity.issueNumber && !identity.usedEpisodeFallback)));
 }
 
 function titleTokenOverlapScore(requestedTokens, labelTokens) {
@@ -572,6 +583,32 @@ function parseTitleList(value) {
         .flatMap(part => splitMultiValue(part, "|"))
         .flatMap(part => splitMultiValue(part, ";"))
         .flatMap(part => splitMultiValue(part, "\n"));
+}
+
+function pickEpisodeName(params) {
+    const candidates = [
+        params.episodeName,
+        params.episodeTitle,
+        params.episode_title,
+        params.epName,
+        params.epTitle,
+        params.subtitle,
+        params.subTitle,
+        params.partName,
+        params.partTitle,
+        params.currentEpisodeName,
+        params.currentEpisodeTitle
+    ];
+    for (const value of candidates) {
+        const text = safeText(value);
+        if (text) return text;
+    }
+
+    const titleLikeValues = [params.name, params.titleName, params.displayTitle, params.title].map(safeText).filter(Boolean);
+    for (const text of titleLikeValues) {
+        if (hasExplicitEpisodeMarkerText(text, params)) return text;
+    }
+    return "";
 }
 
 async function requestJsonUrl(url, params, timeout) {
@@ -691,7 +728,7 @@ async function fetchExternalAliases(payload) {
 
 function buildStreamPayload(params) {
     const seriesName = safeText(params.seriesName);
-    const episodeName = safeText(params.episodeName);
+    const episodeName = pickEpisodeName(params);
     const title = safeText(params.title || seriesName || episodeName || params.name || params.id);
     const mediaType = safeText(params.type);
     const season = safeText(params.season);

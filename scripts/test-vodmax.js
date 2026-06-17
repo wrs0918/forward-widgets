@@ -184,6 +184,15 @@ const CASES = [
         }
     },
     {
+        label: "variety pilot title from alternate field",
+        params: { type: "tv", title: "现在就出发", seriesName: "现在就出发", season: 3, episode: 1, episodeTitle: "先导片上：显眼包" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllNamesInclude(streams.slice(0, 8), /先导片上|20251018.*先导片/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /第0?1期上|第0?1期下|第0?2期|加更|纯享/, this.label);
+        }
+    },
+    {
         label: "variety pilot down beats episode number",
         params: { type: "tv", title: "现在就出发", seriesName: "现在就出发", season: 3, episode: 2, episodeName: "先导片下：显眼包" },
         validate(streams) {
@@ -208,6 +217,24 @@ const CASES = [
             assert(streams.length > 0, `${this.label}: expected streams`);
             assertAllNamesInclude(streams.slice(0, 8), /第0?1期.*中|20260514.*中/, this.label);
             assertNoNamesInclude(streams.slice(0, 8), /第0?2期|第0?1期.*上|第0?1期.*下|加更|纯享/, this.label);
+        }
+    },
+    {
+        label: "variety issue part mid from subtitle beats episode number",
+        params: { type: "tv", title: "五十公里桃花坞", seriesName: "五十公里桃花坞", season: 6, episode: 2, subTitle: "第1期中：入住桃花坞", duration: 120 },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllNamesInclude(streams.slice(0, 8), /第0?1期.*中|20260514.*中/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /20260521|第0?2期|第0?1期.*上|第0?1期.*下|加更|纯享/, this.label);
+        }
+    },
+    {
+        label: "variety issue part mid from title beats episode number",
+        params: { type: "tv", title: "第1期中：入住桃花坞", seriesName: "五十公里桃花坞", season: 6, episode: 2, duration: 120 },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllNamesInclude(streams.slice(0, 8), /第0?1期.*中|20260514.*中/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /20260521|第0?2期|第0?1期.*上|第0?1期.*下|加更|纯享/, this.label);
         }
     },
     {
