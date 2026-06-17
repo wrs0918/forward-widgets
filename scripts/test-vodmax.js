@@ -42,8 +42,18 @@ const context = {
     }
 };
 
+const contextWithoutTmdbEpisodeNames = {
+    console,
+    Widget: {
+        http: context.Widget.http,
+        tmdb: { async get() { return {}; } }
+    }
+};
+
 vm.createContext(context);
 vm.runInContext(code, context);
+vm.createContext(contextWithoutTmdbEpisodeNames);
+vm.runInContext(code, contextWithoutTmdbEpisodeNames);
 
 function assert(condition, message) {
     if (!condition) throw new Error(message);
@@ -239,12 +249,30 @@ const CASES = [
         }
     },
     {
+        label: "variety issue down from schedule fallback without episode name",
+        context: contextWithoutTmdbEpisodeNames,
+        params: { type: "tv", tmdbId: "231620", seriesName: "现在就出发", season: "3", episode: "4", episodeName: "", airDate: "" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllNamesInclude(streams.slice(0, 8), /第0?1期.*下|20251026.*下|20251102.*下/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /第0?4期|加更|纯享|预告|解说/, this.label);
+        }
+    },
+    {
         label: "variety issue down keeps identity when air date drifts",
         params: { type: "tv", title: "现在就出发", seriesName: "现在就出发", season: 3, episode: 4, episodeName: "第1期下：出发家族爆笑闯关", airDate: "2025-10-25" },
         validate(streams) {
             assert(streams.length > 0, `${this.label}: expected streams`);
             assertAllNamesInclude(streams.slice(0, 8), /第0?1期.*下|20251026.*下/, this.label);
             assertNoNamesInclude(streams.slice(0, 8), /第0?4期|第0?1期上|加更|纯享|20251025(?!.*下)/, this.label);
+        }
+    },
+    {
+        label: "variety issue down does not become empty when strict identity misses",
+        params: { type: "tv", title: "现在就出发", seriesName: "现在就出发", season: 3, episode: 4, episodeName: "第1期下：出发家族爆笑闯关", airDate: "2025-10-24" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected fallback streams`);
+            assertNoNamesInclude(streams.slice(0, 8), /第0?4期|加更|纯享|预告|解说/, this.label);
         }
     },
     {
@@ -421,7 +449,8 @@ const CASES = [
 
     for (const testCase of CASES) {
         const startedAt = Date.now();
-        const streams = await context.loadResource(testCase.params);
+        const runner = testCase.context || context;
+        const streams = await runner.loadResource(testCase.params);
         testCase.validate(streams);
         console.log(`PASS ${testCase.label}: ${streams.length} streams in ${Date.now() - startedAt}ms`);
         console.log(combinedText(streams.slice(0, 2)));

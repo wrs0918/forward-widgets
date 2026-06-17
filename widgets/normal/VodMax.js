@@ -40,7 +40,7 @@ WidgetMetadata = {
     title: "VOD资源聚合",
     description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "工位划水冠军",
-    version: "5.4.2",
+    version: "5.4.3",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 900,
@@ -522,7 +522,8 @@ function buildRequestedEpisodeIdentity(payload) {
     const text = [payload.episodeName || fallbackTitle, payload.releaseDate].join(" ");
     const identity = buildEpisodeIdentity(text, payload);
     identity.fromEpisodeName = Boolean(payload.episodeName || fallbackTitle);
-    if (!identity.issueNumber && Number(payload.episode) > 0 && !hasReliableVarietyIdentity(identity)) {
+    const textLooksVariety = /[\u4e00-\u9fa5]/.test([payload.title, payload.seriesName].join(" ")) && Number(payload.seasonNumber) > 0;
+    if (!identity.issueNumber && Number(payload.episode) > 0 && !hasReliableVarietyIdentity(identity) && !textLooksVariety) {
         identity.issueNumber = Number(payload.episode);
         identity.usedEpisodeFallback = true;
     }
@@ -1187,7 +1188,38 @@ function episodeNumberMatches(label, episodeNumber) {
         || normalized.includes(`e${padded}`);
 }
 
-function episodeMatchScore(label, payload, index, item, totalEpisodes) {
+function isVarietyScheduleEpisode(label, payload) {
+    const identity = buildEpisodeIdentity(label, payload);
+    if (identity.kind === "trailer" || identity.kind === "cut") return false;
+    if (identity.kind === "behind") return false;
+    if (/回顾|特辑|直播|采访|专访|直拍|彩蛋|花絮|名场面|副本解锁|存档|发布会/.test(safeText(label))) return false;
+    return Boolean(identity.dateCodes.length || identity.issueNumber || identity.part || identity.kind === "normal" || identity.kind === "plus" || identity.kind === "early" || identity.kind === "pure" || identity.kind === "member" || identity.kind === "special");
+}
+
+function varietyScheduleOrdinalScore(payload, ordinal) {
+    const ep = Number(payload.episode) || 0;
+    if (!ep || !ordinal) return 0;
+    if (payload.episodeName || (payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity))) return 0;
+    return ordinal === ep ? 210 : -90;
+}
+
+function isChineseTvWithoutEpisodeName(payload) {
+    return Boolean(
+        payload
+        && payload.mediaType === "tv"
+        && Number(payload.episode) > 0
+        && !payload.episodeName
+        && /[\u4e00-\u9fa5]/.test([payload.title, payload.seriesName].join(""))
+    );
+}
+
+function streamLooksLikeVariety(stream, payload) {
+    const text = safeText(stream && stream.name).split("·").pop();
+    const identity = buildEpisodeIdentity(text, payload || {});
+    return Boolean(identity.issueNumber || identity.part || identity.dateCodes.length || identity.kind !== "normal" || /期|先导|加更|纯享|超前|会员|花絮|彩蛋/.test(text));
+}
+
+function episodeMatchScore(label, payload, index, item, totalEpisodes, scheduleOrdinal) {
     if (isMoviePayload(payload)) return 0;
 
     const rawLabel = safeText(label);
@@ -1204,14 +1236,15 @@ function episodeMatchScore(label, payload, index, item, totalEpisodes) {
         if (payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity)) return identityScore;
         score += identityScore;
     }
+    score += varietyScheduleOrdinalScore(payload, scheduleOrdinal);
 
     if (payload.seasonNumber && ep) {
         const seText = `s${String(payload.seasonNumber).padStart(2, "0")}e${epPadded}`;
         if (normalized.includes(seText)) score += 180;
     }
     if (ep && (normalized.includes(`e${epText}`) || normalized.includes(`e${epPadded}`))) score += 130;
-    if (ep && episodeNumberMatches(rawLabel, ep)) score += payload.longAnime ? 220 : 100;
-    if (ep && index + 1 === ep) score += payload.longAnime ? 8 : variety ? 12 : 55;
+    if (ep && episodeNumberMatches(rawLabel, ep)) score += payload.longAnime ? 220 : variety ? 8 : 100;
+    if (ep && index + 1 === ep) score += payload.longAnime ? 8 : variety ? 4 : 55;
 
     if (hasRequestedDate) score += variety ? 260 : 180;
     if (payload.episodeName) {
@@ -1271,10 +1304,13 @@ function parseEpisodeCandidates(item, source, payload) {
         }
 
         let matchedAny = false;
+        let varietyScheduleOrdinal = 0;
         for (let index = 0; index < episodes.length; index += 1) {
             const episode = episodes[index];
             if (isAuxiliaryTitle(episode.title) && extractVarietyKind(payload.episodeName) === "normal") continue;
-            const matchScore = episodeMatchScore(episode.title, payload, index, item, episodes.length);
+            const shouldUseScheduleOrdinal = (isLikelyVariety(payload, item) || isChineseTvWithoutEpisodeName(payload)) && isVarietyScheduleEpisode(episode.title, payload);
+            const scheduleOrdinal = shouldUseScheduleOrdinal ? ++varietyScheduleOrdinal : 0;
+            const matchScore = episodeMatchScore(episode.title, payload, index, item, episodes.length, scheduleOrdinal);
             if (matchScore <= 0) continue;
             matchedAny = true;
             candidates.push({
@@ -1362,7 +1398,7 @@ function filterExactEpisodeStreams(streams, payload) {
     if (payload.domesticVariety || (payload.isVariety && payload.episodeIdentity)) {
         const identityStreams = filteredStreams.filter(stream => varietyIdentityMatchesStream(stream, payload));
         if (identityStreams.length) filteredStreams = identityStreams;
-        if (hasReliableIdentity) return identityStreams;
+        if (hasReliableIdentity && identityStreams.length) return identityStreams;
     }
 
     if (!hasReliableIdentity && payload.dateCodes && payload.dateCodes.length) {
@@ -1382,6 +1418,10 @@ function filterExactEpisodeStreams(streams, payload) {
     }
 
     const episodeNumber = Number(payload.episode) || 0;
+    if (episodeNumber && isChineseTvWithoutEpisodeName(payload) && filteredStreams.some(stream => streamLooksLikeVariety(stream, payload))) {
+        return filteredStreams;
+    }
+
     if (payload.isVariety && episodeNumber) {
         const exactVarietyEpisode = filteredStreams.filter(stream => episodeNumberMatches(stream.name, episodeNumber));
         if (exactVarietyEpisode.length) return exactVarietyEpisode;
