@@ -45,6 +45,7 @@ https://raw.githubusercontent.com/wrs0918/forward-widgets/main/widgets/normal/Fo
 3. 增强综艺、港剧、美剧、英剧、韩剧、动漫和电影的命名兼容，减少第二季误匹配第一季的问题。
 4. 国内综艺优先按 `episodeName` 里的日期、期号、上中下、先导/加更/纯享/超前/会员版等期身份匹配，`episode` 数字只在没有明确身份时作为弱兜底。
 5. 对长篇动漫按全局集数匹配，对第 0 季/OVA/特别篇要求有特别篇证据，避免串到普通季。
+6. 如果 Forward 的资源模块没有传 `episodeName/airDate`，但传了 `tmdbId + season + episode`，会先用 TMDB 单集接口补全集标题和播出日期，再进入综艺期身份匹配。
 
 这版不是写死某几个片名，而是按 Forward 传入的 `title`、`seriesName`、`episodeName`、`season`、`episode`、`airDate` 等字段做通用补源。
 

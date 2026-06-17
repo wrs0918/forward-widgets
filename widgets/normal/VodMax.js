@@ -36,7 +36,7 @@ WidgetMetadata = {
     title: "VOD资源聚合",
     description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "工位划水冠军",
-    version: "5.3.1",
+    version: "5.4.0",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 900,
@@ -561,12 +561,14 @@ function varietyIdentityMatchesStream(stream, payload) {
     const text = safeText(stream.name).split("·").pop();
     const identity = buildEpisodeIdentity(text, payload);
 
-    if (requested.dateCodes.length) {
-        return requested.dateCodes.some(code => identity.dateCodes.includes(code));
-    }
+    if (requested.dateCodes.length && !requested.dateCodes.some(code => identity.dateCodes.includes(code))) return false;
     if (requested.kind !== "normal" && identity.kind !== requested.kind) return false;
     if (requested.kind === "normal" && identity.kind !== "normal") return false;
-    if (requested.part && identity.part !== requested.part) return false;
+    if (requested.part && identity.part !== requested.part) {
+        const exactDate = requested.dateCodes.length && requested.dateCodes.some(code => identity.dateCodes.includes(code));
+        const specialDateOnly = exactDate && !identity.part && requested.kind !== "normal" && identity.kind === requested.kind;
+        if (!specialDateOnly) return false;
+    }
     if (requested.issueNumber && identity.issueNumber && requested.issueNumber !== identity.issueNumber) return false;
     if (requested.issueNumber && !requested.usedEpisodeFallback && !identity.issueNumber && !requested.dateCodes.length) return false;
     if (requested.kind !== "normal" && requested.issueNumber && !identity.issueNumber) return false;
@@ -724,6 +726,45 @@ async function fetchExternalAliases(payload) {
         fetchJikanAliases(payload)
     ]);
     return uniq(settled.flatMap(item => item.status === "fulfilled" ? item.value : []));
+}
+
+function hasTmdbEpisodeLookupPayload(payload) {
+    return Boolean(payload && payload.mediaType === "tv" && payload.tmdbId && payload.seasonNumber >= 0 && Number(payload.episode) > 0);
+}
+
+async function fetchTmdbEpisodeInfo(payload) {
+    if (!hasTmdbEpisodeLookupPayload(payload) || !Widget.tmdb || typeof Widget.tmdb.get !== "function") return {};
+    try {
+        const data = await Widget.tmdb.get(`tv/${payload.tmdbId}/season/${payload.seasonNumber}/episode/${Number(payload.episode)}`, {
+            params: { language: "zh-CN" }
+        });
+        return data && typeof data === "object" ? data : {};
+    } catch (error) {
+        return {};
+    }
+}
+
+function extractTmdbEpisodeName(data) {
+    return safeText(data && (data.name || data.title || data.episodeName || data.episode_title));
+}
+
+function extractTmdbEpisodeAirDate(data) {
+    return safeText(data && (data.air_date || data.airDate || data.release_date || data.first_air_date));
+}
+
+async function enrichParamsFromTmdbEpisode(params, payload) {
+    if (!hasTmdbEpisodeLookupPayload(payload)) return params || {};
+    if (payload.episodeName && payload.releaseDate) return params || {};
+
+    const data = await fetchTmdbEpisodeInfo(payload);
+    const episodeName = payload.episodeName || extractTmdbEpisodeName(data);
+    const airDate = payload.releaseDate || extractTmdbEpisodeAirDate(data);
+    if (!episodeName && !airDate) return params || {};
+
+    return Object.assign({}, params || {}, {
+        episodeName: episodeName || safeText((params || {}).episodeName),
+        airDate: airDate || safeText((params || {}).airDate)
+    });
 }
 
 function buildStreamPayload(params) {
@@ -1232,14 +1273,15 @@ function dedupeStreams(streams) {
 function filterExactEpisodeStreams(streams, payload) {
     if (isMoviePayload(payload)) return streams;
     let filteredStreams = streams;
+    const hasReliableIdentity = payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity);
 
     if (payload.domesticVariety || (payload.isVariety && payload.episodeIdentity)) {
         const identityStreams = filteredStreams.filter(stream => varietyIdentityMatchesStream(stream, payload));
         if (identityStreams.length) filteredStreams = identityStreams;
-        if (payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity)) return identityStreams;
+        if (hasReliableIdentity) return identityStreams;
     }
 
-    if (payload.dateCodes && payload.dateCodes.length) {
+    if (!hasReliableIdentity && payload.dateCodes && payload.dateCodes.length) {
         const exactDate = filteredStreams.filter(stream => episodeHasRequestedDate(`${stream.name} ${stream.description}`, payload));
         if (exactDate.length) return exactDate;
     }
@@ -1274,7 +1316,10 @@ function filterExactEpisodeStreams(streams, payload) {
 }
 
 async function loadResource(params) {
-    const payload = buildStreamPayload(params || {});
+    const rawParams = params || {};
+    let payload = buildStreamPayload(rawParams);
+    const enrichedParams = await enrichParamsFromTmdbEpisode(rawParams, payload);
+    if (enrichedParams !== rawParams) payload = buildStreamPayload(enrichedParams);
     if (!payload.title && !payload.seriesName) return [];
 
     const searchResult = await searchCandidates(payload);
