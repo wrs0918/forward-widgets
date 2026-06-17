@@ -40,7 +40,7 @@ WidgetMetadata = {
     title: "VOD资源聚合",
     description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "工位划水冠军",
-    version: "5.4.3",
+    version: "5.4.4",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 900,
@@ -71,6 +71,11 @@ function safeText(value) {
 function parseJson(data) {
     if (typeof data === "string") return JSON.parse(data);
     return data || {};
+}
+
+function unwrapData(value) {
+    if (value && typeof value === "object" && value.data && typeof value.data === "object") return value.data;
+    return value || {};
 }
 
 async function requestCms(source, params, timeout) {
@@ -776,16 +781,37 @@ function hasTmdbEpisodeLookupPayload(payload) {
     return Boolean(payload && payload.mediaType === "tv" && payload.tmdbId && payload.seasonNumber >= 0 && Number(payload.episode) > 0);
 }
 
+function normalizeTmdbNumericId(value) {
+    const text = safeText(value);
+    if (!text) return "";
+    const parts = text.split(".");
+    const tail = parts[parts.length - 1];
+    const match = tail.match(/\d+/);
+    return match ? match[0] : "";
+}
+
+function normalizeTmdbEpisodeData(data) {
+    const unwrapped = unwrapData(data);
+    if (Array.isArray(unwrapped)) return unwrapped[0] || {};
+    if (unwrapped && typeof unwrapped === "object" && unwrapped.episode && typeof unwrapped.episode === "object") return unwrapped.episode;
+    return unwrapped && typeof unwrapped === "object" ? unwrapped : {};
+}
+
 async function fetchTmdbEpisodeInfo(payload) {
     if (!hasTmdbEpisodeLookupPayload(payload) || !Widget.tmdb || typeof Widget.tmdb.get !== "function") return {};
+    const tmdbId = normalizeTmdbNumericId(payload.tmdbId);
+    if (!tmdbId) return {};
+    const path = `tv/${tmdbId}/season/${payload.seasonNumber}/episode/${Number(payload.episode)}`;
+    const languageOptions = ["zh-CN", "zh-Hans", "zh"];
     try {
-        const data = await Widget.tmdb.get(`tv/${payload.tmdbId}/season/${payload.seasonNumber}/episode/${Number(payload.episode)}`, {
-            params: { language: "zh-CN" }
-        });
-        return data && typeof data === "object" ? data : {};
+        for (const language of languageOptions) {
+            const data = normalizeTmdbEpisodeData(await Widget.tmdb.get(path, { params: { language: language } }));
+            if (extractTmdbEpisodeName(data) || extractTmdbEpisodeAirDate(data)) return data;
+        }
     } catch (error) {
         return {};
     }
+    return {};
 }
 
 function extractTmdbEpisodeName(data) {
@@ -844,7 +870,7 @@ function buildStreamPayload(params) {
         seriesName: seriesName,
         episodeName: episodeName,
         mediaType: mediaType,
-        tmdbId: safeText(params.tmdbId),
+        tmdbId: normalizeTmdbNumericId(params.tmdbId),
         imdbId: safeText(params.imdbId),
         season: season,
         seasonNumber: seasonNumber,

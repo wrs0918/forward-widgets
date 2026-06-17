@@ -28,7 +28,8 @@ const context = {
             }
         },
         tmdb: {
-            async get(path) {
+            async get(path, options = {}) {
+                assert(options && options.params && options.params.language, `tmdb mock: missing language params for ${path}`);
                 const fixtures = {
                     "tv/231620/season/3/episode/1": { name: "先导片上：显眼包", air_date: "2025-10-18" },
                     "tv/231620/season/3/episode/4": { name: "第1期下：出发家族爆笑闯关", air_date: "2025-10-25" },
@@ -242,6 +243,15 @@ const CASES = [
     {
         label: "variety issue down from tmdb fallback",
         params: { type: "tv", tmdbId: "231620", seriesName: "现在就出发", season: "3", episode: "4", episodeName: "", airDate: "" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllNamesInclude(streams.slice(0, 8), /第0?1期.*下|20251026.*下/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /第0?1期上|第0?4期|加更|纯享/, this.label);
+        }
+    },
+    {
+        label: "variety issue down from typed tmdb id",
+        params: { type: "tv", tmdbId: "tv.231620", seriesName: "现在就出发", season: "3", episode: "4", episodeName: "", airDate: "" },
         validate(streams) {
             assert(streams.length > 0, `${this.label}: expected streams`);
             assertAllNamesInclude(streams.slice(0, 8), /第0?1期.*下|20251026.*下/, this.label);

@@ -26,7 +26,7 @@ https://github.com/wrs0918/forward-msaber-adapter
 
 ## 这个版本做了什么
 
-当前 `VodMax.js` 版本：`5.4.3`。这是纯资源模块，重点优化了这些问题：
+当前 `VodMax.js` 版本：`5.4.4`。这是纯资源模块，重点优化了这些问题：
 
 1. 默认只启用实测更稳定的普通影视 VOD 源，慢源和坏源不放进默认源池；新增 `电影天堂资源` 为默认快源，`无尽、360、魔都` 等作为 fallback 候选。
 2. 进入 Forward 详情页后，会先用快源和精准关键词返回首批结果，结果不足时再查 fallback 源和更宽关键词，避免慢源拖住详情页。
@@ -36,7 +36,7 @@ https://github.com/wrs0918/forward-msaber-adapter
 6. 如果 Forward 没有传 `episodeName`，国内综艺不会再把 `episode=4` 直接当成 `第4期`；会按 VOD 播放列表里的有效节目单顺序兜底，避免 `现在就出发第三季` 第4集显示暂无资源。
 7. 资源排序会弱加分 `1080p/HD/蓝光/高码/正片`，并降权 `TC/CAM/抢先/预告/解说/网盘分享页/疑似广告线路`。
 8. 对长篇动漫按全局集数匹配，对第 0 季/OVA/特别篇要求有特别篇证据，避免串到普通季。
-9. 如果 Forward 的资源模块没有传 `episodeName/airDate`，但传了 `tmdbId + season + episode`，会先用 TMDB 单集接口补全集标题和播出日期，再进入综艺期身份匹配；如果补不到标题，也会走国内综艺播放列表序号兜底。
+9. 如果 Forward 的资源模块没有传 `episodeName/airDate`，但传了 `tmdbId + season + episode`，会先用 TMDB 单集接口补全集标题和播出日期，再进入综艺期身份匹配；兼容 `231620` 和 `tv.231620` 两种 TMDB ID 形态，如果补不到标题，也会走国内综艺播放列表序号兜底。
 
 这版不是写死某几个片名，而是按 Forward 传入的 `title`、`seriesName`、`episodeName`、`season`、`episode`、`airDate` 等字段做通用补源。
 
