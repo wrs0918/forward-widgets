@@ -26,7 +26,7 @@ https://github.com/wrs0918/forward-msaber-adapter
 
 ## 这个版本做了什么
 
-当前 `VodMax.js` 版本：`5.4.8`。这是纯资源模块，重点优化了这些问题：
+当前 `VodMax.js` 版本：`5.4.9`。这是纯资源模块，重点优化了这些问题：
 
 1. 默认只启用实测更稳定的普通影视 VOD 源，慢源和坏源不放进默认源池；新增 `电影天堂资源` 为默认快源，`无尽、360、魔都` 等作为 fallback 候选。
 2. 进入 Forward 详情页后，会先用快源和精准关键词返回首批结果，结果不足时再查 fallback 源和更宽关键词，避免慢源拖住详情页。
@@ -41,6 +41,7 @@ https://github.com/wrs0918/forward-msaber-adapter
 11. 当综艺单集标题没有 `第几期`，例如 `花儿与少年 第一季 第1集 姐弟穷游罗马`，会优先匹配明确的 `第一季/第01集`，降低 `丝路季/好友记` 这类后续季副标题资源的优先级。
 12. 动漫别名不再维护具体作品兜底表；优先使用 Forward 传入标题、TMDB 标题/翻译、Wikidata、TVMaze、Jikan、Bangumi 等动态别名源。`工房/工坊`、繁简异体这类通用写法差异仍会本地归一化。
 13. 长篇动漫不依赖作品名清单，优先从 VOD 详情里的总集数、分类和播放列表反推长篇模式，再按全局集数匹配；真人版、剧场版、特别编辑版等不会抢占普通剧集前排。
+14. 新增项目开发规范 `AGENTS.md`，沉淀后续维护约束：不要写死单片特例、修改规则必须补测试、源池必须先评估、每次提交检查 README 和版本。
 
 这版不是写死某几个片名，而是按 Forward 传入的 `title`、`seriesName`、`episodeName`、`season`、`episode`、`airDate` 等字段做通用补源。
 
@@ -98,6 +99,7 @@ node scripts/compare-anime-matching.js
 ## 仓库结构
 
 ```text
+AGENTS.md
 widgets/
   normal/
     VodMax.js
@@ -111,3 +113,5 @@ scripts/
 ## 说明
 
 本仓库目前主要用于自用和测试。后续如果增加新的 Widget，也会继续放在 `widgets/` 目录下统一管理。
+
+开发或修改匹配规则前，先阅读 `AGENTS.md`，里面记录了国内综艺、长篇动漫、第 0 季/OVA、动态别名、源池评估和提交前测试的维护规范。

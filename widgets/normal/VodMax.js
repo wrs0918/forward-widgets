@@ -1,3 +1,4 @@
+// Source pool: keep default sources small and tested so slow/bad APIs do not block Forward detail pages.
 const SOURCES = [
     { id: "dyttzy", name: "电影天堂资源", baseUrl: "http://caiji.dyttzyapi.com/api.php/provide/vod", priority: 112, tier: "primary" },
     { id: "feifan", name: "非凡资源", baseUrl: "http://ffzy5.tv/api.php/provide/vod", priority: 110, tier: "primary" },
@@ -40,7 +41,7 @@ WidgetMetadata = {
     title: "VOD资源聚合",
     description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "工位划水冠军",
-    version: "5.4.8",
+    version: "5.4.9",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 900,
@@ -56,6 +57,7 @@ WidgetMetadata = {
     ]
 };
 
+// Basic utilities shared by CMS requests, title normalization, scoring, and Forward param parsing.
 function buildHeaders() {
     return {
         "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15",
@@ -153,6 +155,7 @@ const ORTHOGRAPHIC_TITLE_VARIANTS = [
     ["海賊", "海贼"]
 ];
 
+// Only keep generic writing variants here; title-specific aliases should come from dynamic metadata sources.
 function normalizeCjkVariants(value) {
     let text = safeText(value);
     for (const [from, to] of Object.entries(CJK_VARIANT_CHARS)) {
@@ -448,6 +451,7 @@ function durationScore(requestedMinutes, item) {
     return 0;
 }
 
+// Domestic variety matching is identity-first: date, issue number, part, kind, and title tokens beat TMDB episode number.
 function extractVarietyTags(text) {
     const value = safeText(text);
     const tags = [];
@@ -744,6 +748,7 @@ function varietyIdentityMatchesStream(stream, payload) {
     return true;
 }
 
+// Alias enrichment is defensive and bounded; external alias APIs are fallback helpers, not runtime dependencies for every request.
 function parseTitleList(value) {
     if (Array.isArray(value)) return value.map(safeText).filter(Boolean);
     if (value && typeof value === "object") return Object.values(value).map(safeText).filter(Boolean);
@@ -1017,6 +1022,7 @@ function normalizeTmdbEpisodeData(data) {
     return unwrapped && typeof unwrapped === "object" ? unwrapped : {};
 }
 
+// Forward may omit episodeName in stream params even when the detail page shows it, so TMDB episode data fills that gap.
 async function fetchTmdbEpisodeInfo(payload) {
     if (!hasTmdbEpisodeLookupPayload(payload) || !Widget.tmdb || typeof Widget.tmdb.get !== "function") return {};
     const tmdbId = normalizeTmdbNumericId(payload.tmdbId);
@@ -1057,6 +1063,7 @@ async function enrichParamsFromTmdbEpisode(params, payload) {
     });
 }
 
+// Convert Forward params into one normalized payload used by search, scoring, and final filtering.
 function buildStreamPayload(params) {
     const seriesName = safeText(params.seriesName);
     const episodeName = pickEpisodeName(params);
@@ -1157,6 +1164,7 @@ function buildSearchKeywords(payload) {
     return uniq(orderedKeywords).slice(0, payload.animeSpecialSeason ? 18 : payload.longAnime ? 10 : 6);
 }
 
+// Candidate scoring decides which VOD detail pages are worth opening before we inspect playback lists.
 function titleSimilarityScore(itemTitle, keyword, payload) {
     const item = normalizeTitle(itemTitle);
     const normalizedKeyword = normalizeTitle(keyword);
@@ -1354,6 +1362,7 @@ async function searchSourcesByIds(sourceIds, payload, keywords, timeout, options
     return settled.flatMap(item => item.status === "fulfilled" ? item.value : []);
 }
 
+// Search in phases: fast primary sources first, then aliases/fallback sources only when results are not good enough.
 async function searchCandidates(payload, options) {
     const searchOptions = options || {};
     const forceExternalAliases = Boolean(searchOptions.forceExternalAliases);
@@ -1386,6 +1395,7 @@ async function searchCandidates(payload, options) {
     };
 }
 
+// Playback scoring works on CMS vod_play_url groups and picks the episode label that best matches the normalized payload.
 function parseEpisodes(playGroup) {
     return splitMultiValue(playGroup, "#")
         .map(part => {
@@ -1712,6 +1722,7 @@ function filterExactEpisodeStreams(streams, payload) {
     return filteredStreams;
 }
 
+// Forward stream entrypoint. Keep the flow staged so a few slow sources cannot hold back already-good results.
 async function loadResource(params) {
     const rawParams = params || {};
     let payload = buildStreamPayload(rawParams);
