@@ -40,7 +40,7 @@ WidgetMetadata = {
     title: "VOD资源聚合",
     description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "工位划水冠军",
-    version: "5.4.5",
+    version: "5.4.6",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 900,
@@ -1057,6 +1057,8 @@ function seasonMatchScore(item, payload) {
     if (!payload.seasonNumber) return 0;
     const text = [item.vod_name, item.vod_remarks, item.vod_class, item.type_name].map(safeText).join(" ");
     const itemSeason = extractSeasonNumber(text);
+    const cleanItem = normalizeTitle(removeSeasonText(item.vod_name));
+    const cleanSeries = normalizeTitle(removeSeasonText(payload.seriesName || payload.title));
     if (payload.longAnime && isAnimePayload(payload, item)) {
         if (itemSeason && itemSeason !== payload.seasonNumber) return -80;
         const total = extractTotalEpisodes(text);
@@ -1064,10 +1066,9 @@ function seasonMatchScore(item, payload) {
     }
     if (itemSeason === payload.seasonNumber) return 120;
     if (itemSeason && itemSeason !== payload.seasonNumber) return -260;
+    if (payload.explicitSeason && payload.seasonNumber === 1 && isLikelyVariety(payload, item) && cleanSeries && cleanItem && cleanItem.startsWith(cleanSeries) && cleanItem !== cleanSeries) return -150;
     if (payload.explicitSeason && payload.seasonNumber === 1) return 45;
 
-    const cleanItem = normalizeTitle(removeSeasonText(item.vod_name));
-    const cleanSeries = normalizeTitle(removeSeasonText(payload.seriesName || payload.title));
     if (cleanItem && cleanSeries && cleanItem === cleanSeries) return -120;
     return -35;
 }

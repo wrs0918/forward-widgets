@@ -180,6 +180,15 @@ const CASES = [
         }
     },
     {
+        label: "variety episode title without issue keeps first season",
+        params: { type: "tv", title: "花儿与少年", seriesName: "花儿与少年", season: 1, episode: 1, episodeName: "姐弟穷游罗马", airDate: "2014-04-25" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected first season streams`);
+            assertAllInclude(streams.slice(0, 6), /花儿与少年第一季|花儿与少年\s*第一季/, this.label);
+            assertNoneInclude(streams.slice(0, 6), /丝路季|好友记|露营季|好友季|第0?1期(?!.*第一季)/, this.label);
+        }
+    },
+    {
         label: "variety plus episode",
         params: { type: "tv", title: "种地吧", seriesName: "种地吧", season: 2, episode: 5, episodeName: "加更版第5期" },
         validate(streams) {
