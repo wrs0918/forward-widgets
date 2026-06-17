@@ -31,6 +31,9 @@ const context = {
             async get(path) {
                 const fixtures = {
                     "tv/231620/season/3/episode/1": { name: "先导片上：显眼包", air_date: "2025-10-18" },
+                    "tv/231620/season/3/episode/4": { name: "第1期下：出发家族爆笑闯关", air_date: "2025-10-26" },
+                    "tv/231620/season/3/episode/5": { name: "第1 期加更：出发家族加更", air_date: "2025-10-27" },
+                    "tv/231620/season/3/episode/6": { name: "第一期还有加更：出发家族还有加更", air_date: "2025-10-28" },
                     "tv/233365/season/6/episode/2": { name: "第1期中：入住桃花坞", air_date: "2026-05-14" }
                 };
                 return fixtures[path] || {};
@@ -94,6 +97,8 @@ const OFFICIAL_STYLE_CASES = [
     ["mgtv special", "端午特辑", { kind: "special" }],
     ["bilibili part", "第2期（上）", { issueNumber: 2, part: "up", kind: "normal" }],
     ["bilibili plus", "第1期加更", { issueNumber: 1, kind: "plus" }],
+    ["vod spaced plus", "第1 期加更：出发家族加更", { issueNumber: 1, kind: "plus" }],
+    ["vod chinese more plus", "第一期还有加更：出发家族还有加更", { issueNumber: 1, kind: "plus" }],
     ["vod pilot", "先导片上：显眼包", { part: "up", kind: "special" }],
     ["vod live", "空降直播", { kind: "special" }]
 ];
@@ -220,6 +225,33 @@ const CASES = [
         }
     },
     {
+        label: "variety issue down from tmdb fallback",
+        params: { type: "tv", tmdbId: "231620", seriesName: "现在就出发", season: "3", episode: "4", episodeName: "", airDate: "" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllNamesInclude(streams.slice(0, 8), /第0?1期.*下|20251026.*下/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /第0?1期上|20251025|第0?2期|加更|纯享/, this.label);
+        }
+    },
+    {
+        label: "variety plus issue from tmdb fallback without label issue",
+        params: { type: "tv", tmdbId: "231620", seriesName: "现在就出发", season: "3", episode: "5", episodeName: "", airDate: "" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllNamesInclude(streams.slice(0, 8), /第0?1期.*加更|20251027.*加更/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /还有加更|20251028|第0?1期上|第0?1期下|第0?2期|纯享/, this.label);
+        }
+    },
+    {
+        label: "variety more-plus issue from tmdb fallback without label issue",
+        params: { type: "tv", tmdbId: "231620", seriesName: "现在就出发", season: "3", episode: "6", episodeName: "", airDate: "" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllNamesInclude(streams.slice(0, 8), /还有加更|20251028.*加更/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /20251027|第0?1期上|第0?1期下|第0?2期|纯享/, this.label);
+        }
+    },
+    {
         label: "variety issue part up",
         params: { type: "tv", title: "五十公里桃花坞", seriesName: "五十公里桃花坞", season: 6, episode: 1, episodeName: "第1期上：入住桃花坞", duration: 120 },
         validate(streams) {
@@ -312,6 +344,15 @@ const CASES = [
             assertAllInclude(streams.slice(0, 8), /海贼王/, this.label);
             assertAllInclude(streams.slice(0, 8), /第0*1000集/, this.label);
             assertNoneInclude(streams.slice(0, 8), /鱼人岛|特别编辑版|红发歌姬|海贼王女|剧场版|解说|预告/, this.label);
+        }
+    },
+    {
+        label: "long anime one piece season one avoids side editions",
+        params: { type: "tv", title: "航海王", seriesName: "航海王", season: 1, episode: 1, episodeName: "第1集" },
+        validate(streams) {
+            assertAllInclude(streams.slice(0, 8), /海贼王/, this.label);
+            assertAllInclude(streams.slice(0, 8), /第0*1集/, this.label);
+            assertNoneInclude(streams.slice(0, 8), /鱼人岛|特别编辑版|真人版|红发歌姬|海贼王女|剧场版|解说|预告/, this.label);
         }
     },
     {

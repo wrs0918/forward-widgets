@@ -36,7 +36,7 @@ WidgetMetadata = {
     title: "VOD资源聚合",
     description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "工位划水冠军",
-    version: "5.4.0",
+    version: "5.4.1",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 900,
@@ -255,6 +255,8 @@ function extractTotalEpisodes(text) {
 
 function isLongAnimePayload(payload) {
     const ep = Number(payload.episode) || extractIssueNumber(payload.episodeName);
+    const text = [payload.title, payload.seriesName].map(safeText).join(" ");
+    if (/(海贼王|航海王|one\s*piece|名侦探柯南|火影忍者|博人传|蜡笔小新|哆啦a?梦)/i.test(text)) return true;
     return isAnimePayload(payload, null) && ep >= 80;
 }
 
@@ -417,6 +419,14 @@ function extractVarietyKind(text) {
     return "normal";
 }
 
+function extractPlusSubKind(text) {
+    const value = safeText(text);
+    if (/还有加更/.test(value)) return "more";
+    if (/特别加更|推门加更|补给站加更|万事屋/.test(value)) return "special";
+    if (/加更|加料/.test(value)) return "plus";
+    return "";
+}
+
 function extractVarietyPart(text) {
     const value = safeText(text);
     if (/(^|[^上海])上(?:集|期|篇)?(?:$|[^海])/.test(value) || /[(（:]上[)）]?/.test(value)) return "up";
@@ -462,6 +472,7 @@ function buildEpisodeIdentity(text, payload) {
         issueNumber: extractIssueNumber(value),
         part: extractVarietyPart(value),
         kind: extractVarietyKind(value),
+        plusSubKind: extractPlusSubKind(value),
         titleTokens: extractIdentityTokens(value),
         seasonNumber: extractSeasonNumber(value),
         isAuxiliary: isAuxiliaryTitle(value),
@@ -526,6 +537,9 @@ function varietyIdentityScore(label, payload, item, index) {
 
     if (requested.kind !== "normal") {
         score += labelIdentity.kind === requested.kind ? 150 : -190;
+        if (requested.kind === "plus" && requested.plusSubKind && labelIdentity.plusSubKind) {
+            score += requested.plusSubKind === labelIdentity.plusSubKind ? 45 : -120;
+        }
     } else if (labelIdentity.kind !== "normal") {
         score -= 140;
     } else {
@@ -543,7 +557,7 @@ function varietyIdentityScore(label, payload, item, index) {
 
     if (requested.issueNumber && labelIdentity.issueNumber) {
         score += requested.issueNumber === labelIdentity.issueNumber ? 120 : -240;
-    } else if (requested.issueNumber && !requested.usedEpisodeFallback && !labelIdentity.issueNumber && !requested.dateCodes.length) {
+    } else if (requested.issueNumber && !requested.usedEpisodeFallback && !labelIdentity.issueNumber && !(requested.dateCodes.length && (requested.kind !== "normal" || requested.part))) {
         score -= 120;
     } else if (!hasReliableVarietyIdentity(requested) && ep && index + 1 === ep) {
         score += 16;
@@ -564,14 +578,15 @@ function varietyIdentityMatchesStream(stream, payload) {
     if (requested.dateCodes.length && !requested.dateCodes.some(code => identity.dateCodes.includes(code))) return false;
     if (requested.kind !== "normal" && identity.kind !== requested.kind) return false;
     if (requested.kind === "normal" && identity.kind !== "normal") return false;
+    if (requested.kind === "plus" && requested.plusSubKind && identity.plusSubKind && requested.plusSubKind !== identity.plusSubKind) return false;
     if (requested.part && identity.part !== requested.part) {
         const exactDate = requested.dateCodes.length && requested.dateCodes.some(code => identity.dateCodes.includes(code));
         const specialDateOnly = exactDate && !identity.part && requested.kind !== "normal" && identity.kind === requested.kind;
         if (!specialDateOnly) return false;
     }
     if (requested.issueNumber && identity.issueNumber && requested.issueNumber !== identity.issueNumber) return false;
-    if (requested.issueNumber && !requested.usedEpisodeFallback && !identity.issueNumber && !requested.dateCodes.length) return false;
-    if (requested.kind !== "normal" && requested.issueNumber && !identity.issueNumber) return false;
+    if (requested.issueNumber && !requested.usedEpisodeFallback && !identity.issueNumber && !(requested.dateCodes.length && (requested.kind !== "normal" || requested.part))) return false;
+    if (requested.kind !== "normal" && requested.issueNumber && !identity.issueNumber && !(requested.dateCodes.length && identity.dateCodes.length)) return false;
     if (requested.issueNumber && !requested.usedEpisodeFallback && identity.issueNumber && requested.issueNumber !== identity.issueNumber) return false;
     if (requested.titleTokens.length && identity.titleTokens.length && !titleTokenOverlapScore(requested.titleTokens, identity.titleTokens)) return false;
     return true;
@@ -920,8 +935,9 @@ function isTitlePolluted(item, payload) {
 
     const requestedSpecial = payload.specialSeason || hasAnimeSpecialEvidence([payload.title, payload.seriesName, payload.episodeName].join(" "));
     if (/前传|后传|外传|番外|衍生/.test(rawItemTitle) && targets.some(target => itemTitle.includes(target)) && !targets.includes(itemTitle)) return true;
-    if (payload.longAnime && !requestedSpecial && /(特别编辑版|剧场版|劇場版|歌姬|女王|总集篇|総集編|特别篇|番外|外传|ova|oad|sp)/i.test(rawItemTitle)) return true;
-    if (payload.longAnime && !/(博人传|博人傳|新世代|新时代|女王|外传|番外)/.test([payload.title, payload.seriesName].join(" ")) && /(博人传|博人傳|新世代|新时代|女王)/.test(rawItemTitle)) return true;
+    if (payload.longAnime && !requestedSpecial && /(特别编辑版|剧场版|劇場版|真人版|真人|live\s*action|歌姬|女王|总集篇|総集編|特别篇|番外|外传|ova|oad|sp)/i.test(rawItemTitle)) return true;
+    if (payload.longAnime && !requestedSpecial && /(篇|篇章)/.test(rawItemTitle) && !/(篇|篇章)/.test([payload.title, payload.seriesName].join(" "))) return true;
+    if (payload.longAnime && !/(博人传|博人傳|新世代|新时代|女王|王女|外传|番外|真人)/.test([payload.title, payload.seriesName].join(" ")) && /(博人传|博人傳|新世代|新时代|女王|王女|真人版|真人)/.test(rawItemTitle)) return true;
     return targets.some(target => itemTitle.includes(target) && !itemTitle.startsWith(target));
 }
 
