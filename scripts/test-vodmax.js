@@ -32,7 +32,7 @@ const context = {
                 assert(options && options.params && options.params.language, `tmdb mock: missing language params for ${path}`);
                 const fixtures = {
                     "tv/231620/season/3/episode/1": { name: "先导片上：显眼包", air_date: "2025-10-18" },
-                    "tv/231620/season/3/episode/4": { name: "第1期下：出发家族爆笑闯关", air_date: "2025-10-25" },
+                    "tv/231620/season/3/episode/4": { name: "第1期下：乱套了！沈腾范丞丞互掐人中", air_date: "2025-10-26" },
                     "tv/231620/season/3/episode/5": { name: "第1 期加更：出发家族加更", air_date: "2025-10-27" },
                     "tv/231620/season/3/episode/6": { name: "第一期还有加更：出发家族还有加更", air_date: "2025-10-28" },
                     "tv/233365/season/6/episode/2": { name: "第1期中：入住桃花坞", air_date: "2026-05-14" }
@@ -100,6 +100,9 @@ function assertIdentity(text, expected, label) {
 const OFFICIAL_STYLE_CASES = [
     ["iqiyi normal part", "06-12 第9期: 下", { dateCode: "20260612", issueNumber: 9, part: "down", kind: "normal" }],
     ["iqiyi special plus", "20260517特别加更上", { dateCode: "20260517", part: "up", kind: "plus" }],
+    ["vod date issue up", "第20260514期上", { dateCode: "20260514", part: "up", kind: "normal" }],
+    ["vod date issue down", "第20260514期下", { dateCode: "20260514", part: "down", kind: "normal" }],
+    ["vod date numbered issue up", "20260514第1期上", { dateCode: "20260514", issueNumber: 1, part: "up", kind: "normal" }],
     ["tencent plus", "第1期 万事屋加更", { issueNumber: 1, kind: "plus" }],
     ["tencent early up", "超前集结上：全员集合", { part: "up", kind: "early" }],
     ["tencent early egg", "超前彩蛋：爆笑名场面", { kind: "behind" }],
@@ -116,6 +119,15 @@ const OFFICIAL_STYLE_CASES = [
     ["vod spaced plus", "第1 期加更：出发家族加更", { issueNumber: 1, kind: "plus" }],
     ["vod chinese more plus", "第一期还有加更：出发家族还有加更", { issueNumber: 1, kind: "plus" }],
     ["vod pilot", "先导片上：显眼包", { part: "up", kind: "special" }],
+    ["vod story text does not become mid", "第1期下：乱套了！沈腾范丞丞互掐人中", { issueNumber: 1, part: "down", kind: "normal" }],
+    ["vod story text does not become plus", "第1期下：还有加更难度", { issueNumber: 1, part: "down", kind: "normal" }],
+    ["vod story text does not become pure", "第1期下：纯享快乐", { issueNumber: 1, part: "down", kind: "normal" }],
+    ["vod story text does not become early", "第1期下：超前完成任务", { issueNumber: 1, part: "down", kind: "normal" }],
+    ["vod story text does not become trailer", "第1期下：预告未来", { issueNumber: 1, part: "down", kind: "normal" }],
+    ["vod story text without colon does not become mid", "第1期下乱套了沈腾范丞丞互掐人中", { issueNumber: 1, part: "down", kind: "normal" }],
+    ["vod story text without colon does not become plus", "第1期下还有加更难度", { issueNumber: 1, part: "down", kind: "normal" }],
+    ["vod story text without colon does not become pure", "第1期下纯享快乐", { issueNumber: 1, part: "down", kind: "normal" }],
+    ["vod story text without colon does not become early", "第1期下超前完成任务", { issueNumber: 1, part: "down", kind: "normal" }],
     ["vod live", "空降直播", { kind: "special" }]
 ];
 

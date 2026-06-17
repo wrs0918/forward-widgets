@@ -40,7 +40,7 @@ WidgetMetadata = {
     title: "VOD资源聚合",
     description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "工位划水冠军",
-    version: "5.4.4",
+    version: "5.4.5",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 900,
@@ -433,8 +433,38 @@ function shouldHardFilterVarietyDate(identity) {
     return true;
 }
 
-function extractVarietyKind(text) {
+function varietyIdentityHeadText(text) {
     const value = safeText(text);
+    const beforeColon = value.split(/[：:]/)[0];
+    const colonTag = (value.match(/[：:]\s*((?:上|中|下)(?:集|期|篇)?|加更|还有加更|特别加更|纯享(?:版)?|舞台纯享|超前(?:营业|集结)?|会员版|APP专享|先导片?|预告|花絮|彩蛋|采访|专访|直拍|直播|发布会|特辑|回顾|名场面|副本解锁中|存档中|补给站中)(?:$|[\s)）\],，。！？!?:：-])/) || [])[1] || "";
+    const dateIssueMatch = beforeColon.match(/^(?:第)?20\d{6}(?:期)?\s*(?:第\s*[一二两三四五六七八九十\d]{1,3}\s*期)?\s*(?:[(（]?[上中下][)）]?(?:集|期|篇)?)?/);
+    const issueMatch = beforeColon.match(/^(?:(?!20\d{6})\d{1,2}[-/.月]\d{1,2}日?)?\s*第\s*[一二两三四五六七八九十\d]{1,3}\s*期\s*(?:[(（]?[上中下][)）]?(?:集|期|篇)?)?/);
+    let explicitHead = "";
+    if (dateIssueMatch) {
+        explicitHead = dateIssueMatch[0];
+        const hasPart = /[上中下](?:集|期|篇)?\s*$/.test(explicitHead);
+        const rawTail = beforeColon.slice(dateIssueMatch[0].length);
+        const tail = rawTail.trimStart();
+        const tailTag = (tail.match(/^((?:先导片?|剧情)?纯享(?:版)?|舞台纯享|(?:万事屋|推门|特别|补给站)?加更(?:版)?|还有加更|超前彩蛋|超前(?:营业|集结)?|会员版|APP专享|先导片?|副本解锁中|存档中|补给站中|预告|花絮|彩蛋|采访|专访|迷妹专访|居民采访|直拍|直播|发布会|特辑|回顾|名场面|万事屋)(?=$|[\s)）\],，。！？!?:：-]|[上中下])/) || [])[1] || "";
+        if (tailTag && (!hasPart || /^\s+|^[\-·:：()（）]/.test(rawTail) || /^(?:先导片?|剧情)?纯享|舞台纯享|(?:万事屋|推门|特别|补给站)?加更|还有加更|超前|会员版|APP专享|副本解锁|存档|补给站|预告|花絮|彩蛋|采访|专访|迷妹|居民采访|直拍|直播|发布会|特辑|回顾|名场面|万事屋/.test(tail))) explicitHead += tailTag;
+        const tailPart = (tail.slice(tailTag.length).match(/^([上中下])(?:集|期|篇)?/) || [])[1] || "";
+        if (tailPart && !hasPart) explicitHead += tailPart;
+    } else if (issueMatch) {
+        explicitHead = issueMatch[0];
+        const hasPart = /[上中下](?:集|期|篇)?\s*$/.test(explicitHead);
+        const rawTail = beforeColon.slice(issueMatch[0].length);
+        const tail = rawTail.trimStart();
+        const tailTag = (tail.match(/^((?:万事屋|推门|特别|补给站)?加更(?:版)?|还有加更|纯享(?:版)?|舞台纯享|超前(?:营业|集结)?|会员版|APP专享)(?=$|[\s)）\],，。！？!?:：-])/) || [])[1] || "";
+        if (tailTag && (!hasPart || /^\s+|^[\-·:：()（）]/.test(rawTail))) explicitHead += tailTag;
+    } else {
+        explicitHead = (beforeColon.match(/^(?:20\d{6}|\d{1,2}[-/.月]\d{1,2}日?)?\s*(?:先导片?\s*(?:上|中|下)?|(?:还有|特别)?加更(?:版)?\s*(?:第\s*[一二两三四五六七八九十\d]{1,3}\s*期)?\s*(?:上|中|下)?|纯享(?:版)?\s*(?:第\s*[一二两三四五六七八九十\d]{1,3}\s*期)?\s*(?:上|中|下)?|舞台纯享\s*(?:第\s*[一二两三四五六七八九十\d]{1,3}\s*期)?\s*(?:上|中|下)?|超前彩蛋|超前(?:营业|集结)?\s*(?:第\s*[一二两三四五六七八九十\d]{1,3}\s*期)?\s*(?:上|中|下)?|[上中下](?:集|期|篇)?|会员版|APP专享|副本解锁中|存档中|补给站中|预告|花絮|彩蛋|采访|专访|直拍|直播|发布会|特辑|回顾|名场面)/) || [])[0] || "";
+    }
+    if (!explicitHead && beforeColon.length <= 12 && /特辑|企划|发布会|直播|回顾|名场面|大赏/.test(beforeColon)) explicitHead = beforeColon;
+    return `${explicitHead} ${colonTag}`;
+}
+
+function extractVarietyKind(text) {
+    const value = varietyIdentityHeadText(text);
     if (/预告|trailer/i.test(value)) return "trailer";
     if (/解说|reaction|速看|短视频|\bcut\b/i.test(value)) return "cut";
     if (/加更|加料|万事屋|推门加更|特别加更|补给站加更|还有加更/.test(value)) return "plus";
@@ -447,7 +477,7 @@ function extractVarietyKind(text) {
 }
 
 function extractPlusSubKind(text) {
-    const value = safeText(text);
+    const value = varietyIdentityHeadText(text);
     if (/还有加更/.test(value)) return "more";
     if (/特别加更|推门加更|补给站加更|万事屋/.test(value)) return "special";
     if (/加更|加料/.test(value)) return "plus";
@@ -456,9 +486,13 @@ function extractPlusSubKind(text) {
 
 function extractVarietyPart(text) {
     const value = safeText(text);
-    if (/(^|[^上海])上(?:集|期|篇)?(?:$|[^海])/.test(value) || /[(（:]上[)）]?/.test(value)) return "up";
-    if (/中(?:集|期|篇)?/.test(value) || /[(（:]中[)）]?/.test(value)) return "mid";
-    if (/下(?:集|期|篇)?/.test(value) || /[(（:]下[)）]?/.test(value)) return "down";
+    const colonPart = (value.match(/[：:]\s*([上中下])(?:\s*(?:集|期|篇))?(?:$|[\s)）\],，。！？!?:：-])/) || [])[1] || "";
+    const head = `${varietyIdentityHeadText(value)} ${colonPart}`;
+    const marker = "(第\\s*[一二两三四五六七八九十\\d]{1,3}\\s*期|先导片?|加更|还有加更|特别加更|纯享(?:版)?|舞台纯享|超前(?:营业|集结)?|会员版|APP专享|(?:第)?20\\d{6}(?:期)?|\\d{1,2}[-/.月]\\d{1,2}日?)";
+    if (new RegExp(`${marker}\\s*[(（:]?上[)）]?(?:集|期|篇)?`).test(head) || /[(（]上[)）]/.test(head)) return "up";
+    if (/副本解锁中|存档中|补给站中/.test(head)) return "mid";
+    if (new RegExp(`${marker}\\s*[(（:]?中[)）]?(?:集|期|篇)?`).test(head) || /[(（]中[)）]/.test(head)) return "mid";
+    if (new RegExp(`${marker}\\s*[(（:]?下[)）]?(?:集|期|篇)?`).test(head) || /[(（]下[)）]/.test(head)) return "down";
     return "";
 }
 
@@ -622,7 +656,13 @@ function varietyIdentityMatchesStream(stream, payload) {
     if (requested.issueNumber && !requested.usedEpisodeFallback && !identity.issueNumber && !(requested.dateCodes.length && (requested.kind !== "normal" || requested.part))) return false;
     if (requested.kind !== "normal" && requested.issueNumber && !identity.issueNumber && !(requested.dateCodes.length && identity.dateCodes.length)) return false;
     if (requested.issueNumber && !requested.usedEpisodeFallback && identity.issueNumber && requested.issueNumber !== identity.issueNumber) return false;
-    if (requested.titleTokens.length && identity.titleTokens.length && !titleTokenOverlapScore(requested.titleTokens, identity.titleTokens)) return false;
+    if (requested.titleTokens.length && identity.titleTokens.length && !titleTokenOverlapScore(requested.titleTokens, identity.titleTokens)) {
+        const hasStrongEpisodeIdentity = (exactDateMatched || (requested.dateCodes.length && identity.dateCodes.length && hasNearRequestedDate(requested.dateCodes, identity.dateCodes, 1)))
+            && (!requested.issueNumber || !identity.issueNumber || requested.issueNumber === identity.issueNumber)
+            && (!requested.part || identity.part === requested.part)
+            && requested.kind === identity.kind;
+        if (!hasStrongEpisodeIdentity) return false;
+    }
     return true;
 }
 
