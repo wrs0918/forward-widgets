@@ -62,6 +62,14 @@ node scripts/compare-variety-identity.js
 
 脚本会把爱奇艺、腾讯视频、优酷、芒果 TV、B站常见节目单命名样式，以及 VOD 源播放列表标签，统一输出成日期、期号、上下篇和正片/加更/纯享/超前等期身份字段。
 
+动漫匹配对照可以用下面的只读脚本查看：
+
+```bash
+node scripts/compare-anime-matching.js
+```
+
+脚本会展示新番别名、长篇动漫全局集数、第 0 季/OVA 的搜索关键词、匹配模式和最终资源。
+
 ## 如何导入到 Forward
 
 在 Forward 中添加 Widget 时，直接填入上面的 Raw 地址即可。

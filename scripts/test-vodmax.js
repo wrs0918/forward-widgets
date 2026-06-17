@@ -172,6 +172,73 @@ const CASES = [
             assertAllInclude(streams.slice(0, 8), /咒术回战\s*第二季|咒術迴戰\s*第二季/, this.label);
             assertAllInclude(streams.slice(0, 8), /第0?1集/, this.label);
         }
+    },
+    {
+        label: "anime alias variant",
+        params: { type: "tv", title: "尖帽子的魔法工房", seriesName: "尖帽子的魔法工房", season: 1, episode: 1, episodeName: "第1集" },
+        validate(streams) {
+            assertAllInclude(streams.slice(0, 8), /尖帽子的魔法工坊/, this.label);
+            assertAllInclude(streams.slice(0, 8), /第0?1集/, this.label);
+        }
+    },
+    {
+        label: "anime english alias",
+        params: { type: "tv", title: "Witch Hat Atelier", seriesName: "Witch Hat Atelier", season: 1, episode: 1, episodeName: "Episode 1", originalTitle: "とんがり帽子のアトリエ" },
+        validate(streams) {
+            assertAllInclude(streams.slice(0, 8), /尖帽子的魔法工坊/, this.label);
+            assertAllInclude(streams.slice(0, 8), /第0?1集/, this.label);
+        }
+    },
+    {
+        label: "long anime one piece global episode",
+        params: { type: "tv", title: "航海王", seriesName: "航海王", season: 21, episode: 1000, episodeName: "第1000集" },
+        validate(streams) {
+            assertAllInclude(streams.slice(0, 8), /海贼王/, this.label);
+            assertAllInclude(streams.slice(0, 8), /第0*1000集/, this.label);
+            assertNoneInclude(streams.slice(0, 8), /鱼人岛|特别编辑版|红发歌姬|海贼王女|剧场版|解说|预告/, this.label);
+        }
+    },
+    {
+        label: "long anime conan global episode",
+        params: { type: "tv", title: "名侦探柯南", seriesName: "名侦探柯南", season: 15, episode: 500, episodeName: "第500集" },
+        validate(streams) {
+            assertAllInclude(streams.slice(0, 8), /名侦探柯南/, this.label);
+            assertAllInclude(streams.slice(0, 8), /第0*500集/, this.label);
+        }
+    },
+    {
+        label: "long anime naruto excludes boruto",
+        params: { type: "tv", title: "火影忍者", seriesName: "火影忍者", season: 1, episode: 220, episodeName: "第220集" },
+        validate(streams) {
+            assertAllInclude(streams.slice(0, 8), /火影忍者/, this.label);
+            assertAllInclude(streams.slice(0, 8), /第0*220集/, this.label);
+            assertNoneInclude(streams.slice(0, 8), /博人传|次世代|新时代/, this.label);
+        }
+    },
+    {
+        label: "long anime boruto global episode",
+        params: { type: "tv", title: "博人传：火影忍者新时代", seriesName: "博人传：火影忍者新时代", season: 1, episode: 293, episodeName: "第293集" },
+        validate(streams) {
+            assertAllInclude(streams.slice(0, 8), /博人传|次世代|新时代/, this.label);
+            assertAllInclude(streams.slice(0, 8), /第0*293集/, this.label);
+        }
+    },
+    {
+        label: "anime special season ova",
+        params: { type: "tv", title: "异兽魔都", seriesName: "异兽魔都", season: 0, episode: 1, episodeName: "第1集", originalTitle: "Dorohedoro" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected OVA streams`);
+            assertAllInclude(streams, /OVA|OAD|SP|特别篇|番外|外传|特典/, this.label);
+            assertNoneInclude(streams, /异兽魔都第二季|第12集完结/, this.label);
+        }
+    },
+    {
+        label: "anime normal season excludes ova",
+        params: { type: "tv", title: "异兽魔都", seriesName: "异兽魔都", season: 1, episode: 1, episodeName: "第1集" },
+        validate(streams) {
+            assertAllInclude(streams.slice(0, 8), /异兽魔都/, this.label);
+            assertNoneInclude(streams.slice(0, 8), /OVA|OAD|SP|特别篇|番外|外传|异兽魔都第二季/, this.label);
+        }
     }
 ];
 

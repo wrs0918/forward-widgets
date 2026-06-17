@@ -31,7 +31,11 @@ const SOURCE_EVALUATION_CASES = [
     ["us", "最后生还者第二季"],
     ["uk", "神探夏洛克第二季"],
     ["kr", "苦尽柑来遇见你"],
-    ["anime", "咒术回战第二季"]
+    ["anime", "咒术回战第二季"],
+    ["anime", "尖帽子的魔法工坊"],
+    ["long-anime", "海贼王"],
+    ["long-anime", "名侦探柯南"],
+    ["special-anime", "异兽魔都OVA"]
 ];
 
 function timeoutSignal(ms) {
@@ -114,9 +118,9 @@ async function evaluateSource(source) {
 async function main() {
     const rows = await Promise.all(SOURCES.map(evaluateSource));
     rows.sort((a, b) => b.okCases - a.okCases || b.playableHints - a.playableHints || a.errors - b.errors || a.avgMs - b.avgMs);
-    console.log("name\tok/8\tplayHint\terrors\tavgMs\titems\taux\thits");
+    console.log(`name\tok/${SOURCE_EVALUATION_CASES.length}\tplayHint\terrors\tavgMs\titems\taux\thits`);
     for (const row of rows) {
-        console.log(`${row.name}\t${row.okCases}/8\t${row.playableHints}\t${row.errors}\t${row.avgMs}\t${row.totalItems}\t${row.auxiliary}\t${row.hits.join(" | ")}`);
+        console.log(`${row.name}\t${row.okCases}/${SOURCE_EVALUATION_CASES.length}\t${row.playableHints}\t${row.errors}\t${row.avgMs}\t${row.totalItems}\t${row.auxiliary}\t${row.hits.join(" | ")}`);
     }
 }
 
