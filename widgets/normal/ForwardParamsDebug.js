@@ -3,7 +3,7 @@ WidgetMetadata = {
     title: "Forward参数调试",
     description: "调试 Forward 详情页传给 stream 资源模块的 params 字段",
     author: "工位划水冠军",
-    version: "1.0.0",
+    version: "1.1.0",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 0,
@@ -50,6 +50,12 @@ function chunkText(text, size) {
     return chunks.length ? chunks : [""];
 }
 
+function compactValue(value, maxLength) {
+    const text = safeString(value).replace(/\s+/g, " ");
+    if (text.length <= maxLength) return text;
+    return `${text.slice(0, maxLength - 1)}…`;
+}
+
 function summarizeParams(params) {
     const keys = Object.keys(params || {}).sort();
     const importantKeys = [
@@ -86,22 +92,48 @@ function summarizeParams(params) {
     ].join("\n");
 }
 
+function importantNameRows(params) {
+    const rows = [];
+    const keyGroups = [
+        ["type", "mediaType", "season", "episode"],
+        ["title"],
+        ["seriesName"],
+        ["episodeName"],
+        ["episodeTitle", "episode_title", "epName", "epTitle"],
+        ["subtitle", "subTitle", "name"],
+        ["airDate", "premiereDate", "releaseDate"],
+        ["runtime", "duration"],
+        ["tmdbId", "imdbId"]
+    ];
+
+    for (const group of keyGroups) {
+        const parts = group
+            .filter(key => Object.prototype.hasOwnProperty.call(params || {}, key))
+            .map(key => `${key}=${compactValue(params[key], 56)}`);
+        if (parts.length) rows.push(parts.join(" | "));
+    }
+
+    const allKeys = Object.keys(params || {}).sort();
+    rows.unshift(`keys=${allKeys.join(",") || "-"}`);
+    return rows;
+}
+
 async function loadResource(params = {}) {
     const summary = summarizeParams(params);
     const json = stringifyParams(params);
     console.log("[ForwardParamsDebug] params summary:", summary);
     console.log("[ForwardParamsDebug] params json:", json);
 
-    const streams = [{
-        name: "Forward参数调试 · 字段摘要",
+    const streams = importantNameRows(params).map((row, index) => ({
+        name: `Forward参数调试 · ${String(index + 1).padStart(2, "0")} · ${row}`,
         description: summary,
         url: params.videoUrl || params.link || "https://example.com/forward-params-debug"
-    }];
+    }));
 
-    const chunks = chunkText(json, 900);
+    const chunks = chunkText(json.replace(/\s+/g, " "), 90);
     for (let index = 0; index < chunks.length; index += 1) {
         streams.push({
-            name: `Forward参数调试 · JSON ${index + 1}/${chunks.length}`,
+            name: `Forward参数调试 · JSON ${index + 1}/${chunks.length} · ${chunks[index]}`,
             description: chunks[index],
             url: params.videoUrl || params.link || "https://example.com/forward-params-debug"
         });
