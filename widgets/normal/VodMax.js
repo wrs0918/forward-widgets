@@ -40,7 +40,7 @@ WidgetMetadata = {
     title: "VOD资源聚合",
     description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "工位划水冠军",
-    version: "5.4.1",
+    version: "5.4.2",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 900,
