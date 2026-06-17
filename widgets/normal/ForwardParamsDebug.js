@@ -3,7 +3,7 @@ WidgetMetadata = {
     title: "Forward参数调试",
     description: "调试 Forward 详情页传给 stream 资源模块的 params 字段",
     author: "工位划水冠军",
-    version: "1.1.0",
+    version: "1.2.0",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 0,
@@ -124,10 +124,11 @@ async function loadResource(params = {}) {
     console.log("[ForwardParamsDebug] params summary:", summary);
     console.log("[ForwardParamsDebug] params json:", json);
 
+    const baseUrl = "https://example.com/forward-params-debug";
     const streams = importantNameRows(params).map((row, index) => ({
         name: `Forward参数调试 · ${String(index + 1).padStart(2, "0")} · ${row}`,
         description: summary,
-        url: params.videoUrl || params.link || "https://example.com/forward-params-debug"
+        url: `${baseUrl}#row-${index + 1}`
     }));
 
     const chunks = chunkText(json.replace(/\s+/g, " "), 90);
@@ -135,7 +136,7 @@ async function loadResource(params = {}) {
         streams.push({
             name: `Forward参数调试 · JSON ${index + 1}/${chunks.length} · ${chunks[index]}`,
             description: chunks[index],
-            url: params.videoUrl || params.link || "https://example.com/forward-params-debug"
+            url: `${baseUrl}#json-${index + 1}`
         });
     }
     return streams;
