@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const SOURCES = [
+    ["dyttzy", "电影天堂资源", "http://caiji.dyttzyapi.com/api.php/provide/vod"],
     ["feifan", "非凡资源", "http://ffzy5.tv/api.php/provide/vod"],
     ["ruyi", "如意资源", "https://cj.rycjapi.com/api.php/provide/vod"],
     ["jisu", "极速资源", "https://jszyapi.com/api.php/provide/vod"],
@@ -12,7 +13,14 @@ const SOURCES = [
     ["zuida", "最大资源", "https://api.zuidapi.com/api.php/provide/vod"],
     ["piaoling", "飘零资源", "https://p2100.net/api.php/provide/vod"],
     ["feifanapi", "非凡API", "https://api.ffzyapi.com/api.php/provide/vod"],
-    ["wujin", "无尽资源", "https://api.wujinapi.com/api.php/provide/vod"],
+    ["wujin", "无尽资源", "https://api.wujinapi.me/api.php/provide/vod"],
+    ["zy360", "360资源", "https://360zy.com/api.php/provide/vod"],
+    ["mdzy", "魔都资源", "https://www.mdzyapi.com/api.php/provide/vod"],
+    ["heimuer", "黑木耳", "https://json.heimuer.xyz/api.php/provide/vod"],
+    ["tyyszy", "天涯资源", "https://tyyszy.com/api.php/provide/vod"],
+    ["maotaizy", "茅台资源", "https://caiji.maotaizy.cc/api.php/provide/vod"],
+    ["mozhua", "魔爪资源", "https://mozhuazy.com/api.php/provide/vod"],
+    ["xiaomaomi", "小猫咪资源", "https://zy.xmm.hk/api.php/provide/vod"],
     ["wolong", "卧龙资源", "https://wolongzyw.com/api.php/provide/vod"],
     ["yinghua", "樱花资源", "https://m3u8.apiyhzy.com/api.php/provide/vod"],
     ["suoni", "索尼资源", "https://suoniapi.com/api.php/provide/vod"],
@@ -72,13 +80,17 @@ function inspectList(list) {
     const sample = Array.isArray(list) ? list.slice(0, 5) : [];
     let playableHints = 0;
     let auxiliary = 0;
+    let hdHints = 0;
+    let adRisk = 0;
     for (const item of sample) {
         const text = `${item.vod_name || ""} ${item.vod_remarks || ""} ${item.vod_class || ""}`;
         const playText = `${item.vod_play_url || ""}`;
         if (/\.m3u8|\.mp4|https?:\/\//i.test(playText)) playableHints += 1;
         if (/预告|解说|花絮|片花|特辑|reaction|制作/.test(text)) auxiliary += 1;
+        if (/1080p|1080|2160p|4k|HD|蓝光|高码|FHD/i.test(`${text} ${playText}`)) hdHints += 1;
+        if (/TC|HDTC|CAM|枪版|抢先|网盘|夸克|阿里云|迅雷|百度云|115|share\//i.test(`${text} ${playText}`)) adRisk += 1;
     }
-    return { playableHints, auxiliary, first: sample[0] ? sample[0].vod_name || "" : "" };
+    return { playableHints, auxiliary, hdHints, adRisk, first: sample[0] ? sample[0].vod_name || "" : "" };
 }
 
 async function evaluateSource(source) {
@@ -96,7 +108,9 @@ async function evaluateSource(source) {
             count: list.length,
             first: inspected.first,
             playableHints: inspected.playableHints,
-            auxiliary: inspected.auxiliary
+            auxiliary: inspected.auxiliary,
+            hdHints: inspected.hdHints,
+            adRisk: inspected.adRisk
         };
     }));
 
@@ -111,16 +125,18 @@ async function evaluateSource(source) {
         totalItems: hitRows.reduce((sum, row) => sum + row.count, 0),
         playableHints: hitRows.reduce((sum, row) => sum + row.playableHints, 0),
         auxiliary: hitRows.reduce((sum, row) => sum + row.auxiliary, 0),
+        hdHints: hitRows.reduce((sum, row) => sum + row.hdHints, 0),
+        adRisk: hitRows.reduce((sum, row) => sum + row.adRisk, 0),
         hits: hitRows.slice(0, 5).map(row => `${row.type}:${row.first}`)
     };
 }
 
 async function main() {
     const rows = await Promise.all(SOURCES.map(evaluateSource));
-    rows.sort((a, b) => b.okCases - a.okCases || b.playableHints - a.playableHints || a.errors - b.errors || a.avgMs - b.avgMs);
-    console.log(`name\tok/${SOURCE_EVALUATION_CASES.length}\tplayHint\terrors\tavgMs\titems\taux\thits`);
+    rows.sort((a, b) => b.okCases - a.okCases || b.playableHints - a.playableHints || b.hdHints - a.hdHints || a.adRisk - b.adRisk || a.errors - b.errors || a.avgMs - b.avgMs);
+    console.log(`name\tok/${SOURCE_EVALUATION_CASES.length}\tplayHint\thdHint\tadRisk\terrors\tavgMs\titems\taux\thits`);
     for (const row of rows) {
-        console.log(`${row.name}\t${row.okCases}/${SOURCE_EVALUATION_CASES.length}\t${row.playableHints}\t${row.errors}\t${row.avgMs}\t${row.totalItems}\t${row.auxiliary}\t${row.hits.join(" | ")}`);
+        console.log(`${row.name}\t${row.okCases}/${SOURCE_EVALUATION_CASES.length}\t${row.playableHints}\t${row.hdHints}\t${row.adRisk}\t${row.errors}\t${row.avgMs}\t${row.totalItems}\t${row.auxiliary}\t${row.hits.join(" | ")}`);
     }
 }
 

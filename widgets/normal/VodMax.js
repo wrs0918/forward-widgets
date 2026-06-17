@@ -1,4 +1,5 @@
 const SOURCES = [
+    { id: "dyttzy", name: "电影天堂资源", baseUrl: "http://caiji.dyttzyapi.com/api.php/provide/vod", priority: 112, tier: "primary" },
     { id: "feifan", name: "非凡资源", baseUrl: "http://ffzy5.tv/api.php/provide/vod", priority: 110, tier: "primary" },
     { id: "ruyi", name: "如意资源", baseUrl: "https://cj.rycjapi.com/api.php/provide/vod", priority: 108, tier: "primary" },
     { id: "jisu", name: "极速资源", baseUrl: "https://jszyapi.com/api.php/provide/vod", priority: 106, tier: "primary" },
@@ -10,10 +11,13 @@ const SOURCES = [
     { id: "zuida", name: "最大资源", baseUrl: "https://api.zuidapi.com/api.php/provide/vod", priority: 94, tier: "primary" },
     { id: "piaoling", name: "飘零资源", baseUrl: "https://p2100.net/api.php/provide/vod", priority: 88, tier: "fallback" },
     { id: "feifanapi", name: "非凡API", baseUrl: "https://api.ffzyapi.com/api.php/provide/vod", priority: 86, tier: "fallback" },
-    { id: "wujin", name: "无尽资源", baseUrl: "https://api.wujinapi.com/api.php/provide/vod", priority: 76, tier: "fallback" }
+    { id: "wujin", name: "无尽资源", baseUrl: "https://api.wujinapi.me/api.php/provide/vod", priority: 84, tier: "fallback" },
+    { id: "zy360", name: "360资源", baseUrl: "https://360zy.com/api.php/provide/vod", priority: 78, tier: "fallback" },
+    { id: "mdzy", name: "魔都资源", baseUrl: "https://www.mdzyapi.com/api.php/provide/vod", priority: 72, tier: "fallback" }
 ];
 
 const SOURCE_MAP = Object.fromEntries(SOURCES.map(source => [source.id, source]));
+const FAST_SOURCE_IDS = ["dyttzy", "zuida", "lezi", "ruyi", "ikun", "jisu", "hongniu"].filter(id => SOURCE_MAP[id]);
 const PRIMARY_SOURCE_IDS = SOURCES.filter(source => source.tier === "primary").map(source => source.id);
 const FALLBACK_SOURCE_IDS = SOURCES.filter(source => source.tier === "fallback").map(source => source.id);
 const CHINESE_NUMBERS = {
@@ -216,7 +220,7 @@ function normalizeTitle(title) {
 }
 
 function isAuxiliaryTitle(title) {
-    return /(解说|预告|花絮|reaction|直拍|片花|彩蛋|直播|cut|速看|短剧|制作特辑|幕后|纪录片|trailer|少爷)/i.test(safeText(title));
+    return /(解说|预告|花絮|reaction|片花|彩蛋|直播|cut|速看|短剧|制作特辑|幕后|纪录片|trailer|少爷)/i.test(safeText(title));
 }
 
 function isAnimeText(text) {
@@ -365,17 +369,17 @@ function extractVarietyTags(text) {
     const value = safeText(text);
     const tags = [];
     const patterns = [
-        ["plus", /加更|加料|衍生/g],
-        ["early", /超前|抢先|提前/g],
-        ["member", /会员|VIP|尊享/g],
-        ["pure", /纯享|纯享版/g],
+        ["plus", /加更|加料|衍生|万事屋/g],
+        ["early", /超前|抢先|提前|超前营业|超前集结/g],
+        ["member", /会员|VIP|尊享|APP专享|会员版/g],
+        ["pure", /纯享|纯享版|舞台纯享|剧情纯享/g],
         ["part-up", /上(?:集|期|篇)?(?!海)/g],
         ["part-mid", /中(?:集|期|篇)?/g],
         ["part-down", /下(?:集|期|篇)?/g],
-        ["special", /序|先导|特别|番外|外传|特辑|发布会|大赏/g],
-        ["behind", /花絮|彩蛋|未播|幕后|采访|专访|存档|副本解锁|补给站/g],
+        ["special", /序|先导|特别|番外|外传|特辑|发布会|大赏|回顾|集结|名场面/g],
+        ["behind", /花絮|彩蛋|超前彩蛋|未播|幕后|采访|专访|存档|副本解锁|补给站|直拍/g],
         ["trailer", /预告|trailer/g],
-        ["cut", /cut|短视频|速看|直拍|reaction|解说/g]
+        ["cut", /cut|短视频|速看|reaction|解说/g]
     ];
     for (const [tag, pattern] of patterns) {
         if (pattern.test(value)) tags.push(tag);
@@ -406,15 +410,33 @@ function episodeHasRequestedDate(label, payload) {
     return payload.dateCodes.some(code => labelDateCodes.includes(code));
 }
 
+function dateCodeDistanceDays(left, right) {
+    if (!/^\d{8}$/.test(safeText(left)) || !/^\d{8}$/.test(safeText(right))) return 9999;
+    const leftTime = Date.UTC(Number(left.slice(0, 4)), Number(left.slice(4, 6)) - 1, Number(left.slice(6, 8)));
+    const rightTime = Date.UTC(Number(right.slice(0, 4)), Number(right.slice(4, 6)) - 1, Number(right.slice(6, 8)));
+    return Math.round(Math.abs(leftTime - rightTime) / 86400000);
+}
+
+function hasNearRequestedDate(requestedCodes, labelCodes, maxDays) {
+    if (!requestedCodes || !requestedCodes.length || !labelCodes || !labelCodes.length) return false;
+    return requestedCodes.some(requested => labelCodes.some(label => dateCodeDistanceDays(requested, label) <= maxDays));
+}
+
+function shouldHardFilterVarietyDate(identity) {
+    if (!identity || !identity.dateCodes || !identity.dateCodes.length) return false;
+    if (identity.fromEpisodeName && (identity.issueNumber || identity.part || identity.kind !== "normal" || identity.titleTokens.length)) return false;
+    return true;
+}
+
 function extractVarietyKind(text) {
     const value = safeText(text);
     if (/预告|trailer/i.test(value)) return "trailer";
-    if (/解说|reaction|速看|短视频|直拍|\bcut\b/i.test(value)) return "cut";
+    if (/解说|reaction|速看|短视频|\bcut\b/i.test(value)) return "cut";
     if (/加更|加料|万事屋|推门加更|特别加更|补给站加更|还有加更/.test(value)) return "plus";
-    if (/超前|抢先|提前|超前营业/.test(value)) return "early";
-    if (/纯享|剧情纯享|纯享版|纯享典藏/.test(value)) return "pure";
-    if (/会员|VIP|尊享/.test(value)) return "member";
-    if (/花絮|幕后|彩蛋|未播|采访|专访|存档|副本解锁|补给站|迷妹|居民采访/.test(value)) return "behind";
+    if (/花絮|幕后|彩蛋|超前彩蛋|未播|采访|专访|存档|副本解锁|补给站|迷妹|居民采访|直拍/.test(value)) return "behind";
+    if (/超前|抢先|提前|超前营业|超前集结/.test(value)) return "early";
+    if (/纯享|剧情纯享|纯享版|纯享典藏|舞台纯享/.test(value)) return "pure";
+    if (/会员|VIP|尊享|APP专享|会员版/.test(value)) return "member";
     if (/序篇?|先导片?|特别|番外|外传|特辑|发布会|大赏|端午企划|端午特辑|游戏特辑|回顾|直播|集结篇|线下集结|线上集结|空降直播|名场面/.test(value)) return "special";
     return "normal";
 }
@@ -460,7 +482,7 @@ function extractIdentityTokens(text) {
         .replace(/\d{1,2}[-/.月]\d{1,2}日?/g, " ")
         .replace(/第\s*[一二两三四五六七八九十\d]{1,3}\s*(?:期|集|话|回)/g, " ")
         .replace(/[上下中](?:集|期|篇)?/g, " ")
-        .replace(/正片|完整版|加更版|纯享版|会员版|超前营业|先导片?|序篇?|特别加更|还有加更|特别|番外|外传|花絮|彩蛋|幕后|未播|采访|专访|存档|副本解锁中?|补给站|万事屋|迷妹|居民采访|发布会|大赏|特辑|端午企划|端午特辑|游戏特辑|回顾|直播|集结篇|线下集结|线上集结|空降直播|名场面|预告|解说|reaction|短视频|速看|直拍|cut/gi, " ")
+        .replace(/正片|完整版|加更版|纯享版|舞台纯享|剧情纯享|会员版|APP专享|超前营业|超前集结|超前彩蛋|先导片?|序篇?|特别加更|还有加更|特别|番外|外传|花絮|彩蛋|幕后|未播|采访|专访|存档|副本解锁中?|补给站|万事屋|迷妹|居民采访|发布会|大赏|特辑|端午企划|端午特辑|游戏特辑|回顾|直播|集结篇|线下集结|线上集结|空降直播|名场面|预告|解说|reaction|短视频|速看|直拍|cut/gi, " ")
         .replace(/[^\u4e00-\u9fa5A-Za-z0-9]+/g, " ");
     return uniq(value.split(/\s+/).map(part => part.trim()).filter(part => part.length >= 2 && part.length <= 12));
 }
@@ -528,11 +550,13 @@ function varietyIdentityScore(label, payload, item, index) {
     const ep = Number(payload.episode) || 0;
     let score = 0;
 
+    const hardFilterDate = shouldHardFilterVarietyDate(requested);
     if (requested.dateCodes.length) {
         const dateMatched = requested.dateCodes.some(code => labelIdentity.dateCodes.includes(code));
         if (dateMatched) score += 360;
-        else if (labelIdentity.dateCodes.length) score -= 460;
-        else score -= 180;
+        else if (labelIdentity.dateCodes.length && requested.issueNumber && !labelIdentity.issueNumber && !hasNearRequestedDate(requested.dateCodes, labelIdentity.dateCodes, 1)) score -= 360;
+        else if (labelIdentity.dateCodes.length) score -= hardFilterDate ? 460 : 65;
+        else score -= hardFilterDate ? 180 : 18;
     }
 
     if (requested.kind !== "normal") {
@@ -575,7 +599,11 @@ function varietyIdentityMatchesStream(stream, payload) {
     const text = safeText(stream.name).split("·").pop();
     const identity = buildEpisodeIdentity(text, payload);
 
-    if (requested.dateCodes.length && !requested.dateCodes.some(code => identity.dateCodes.includes(code))) return false;
+    const exactDateMatched = requested.dateCodes.length && requested.dateCodes.some(code => identity.dateCodes.includes(code));
+    if (shouldHardFilterVarietyDate(requested) && requested.dateCodes.length && !exactDateMatched) return false;
+    if (requested.dateCodes.length && identity.dateCodes.length && !exactDateMatched && requested.issueNumber && !identity.issueNumber) {
+        if (!(requested.part && identity.part === requested.part && hasNearRequestedDate(requested.dateCodes, identity.dateCodes, 1))) return false;
+    }
     if (requested.kind !== "normal" && identity.kind !== requested.kind) return false;
     if (requested.kind === "normal" && identity.kind !== "normal") return false;
     if (requested.kind === "plus" && requested.plusSubKind && identity.plusSubKind && requested.plusSubKind !== identity.plusSubKind) return false;
@@ -987,6 +1015,17 @@ function mediaTypeScore(item, payload) {
     return score;
 }
 
+function qualityScore(text) {
+    const value = safeText(text);
+    let score = 0;
+    if (/2160p|4k|uhd|蓝光|blu-?ray|高码|无损/i.test(value)) score += 34;
+    if (/1080p|1080|fhd|full\s*hd|HD中字|HD国语|HD粤语|HD/i.test(value)) score += 24;
+    if (/720p|720/i.test(value)) score += 8;
+    if (/正片|完整版|完结|已完结|全集/.test(value)) score += 8;
+    if (/TC|HDTC|TS|CAM|枪版|抢先|尝鲜|预告|片花|解说|reaction|网盘|夸克|阿里云|迅雷|百度云|115|share\//i.test(value)) score -= 55;
+    return score;
+}
+
 function scoreSearchMatch(item, payload, source, keyword) {
     if (!item || !item.vod_id || !item.vod_name) return -999;
     const itemNormalized = normalizeTitle(item.vod_name);
@@ -1006,6 +1045,7 @@ function scoreSearchMatch(item, payload, source, keyword) {
     score += strictTitlePenalty(item, payload);
     score += seasonMatchScore(item, payload);
     score += mediaTypeScore(item, payload);
+    score += qualityScore([item.vod_name, item.vod_remarks, item.vod_class, item.type_name].join(" "));
 
     if (isAuxiliaryTitle(item.vod_name)) score -= 220;
     if (isMoviePayload(payload) && isAuxiliaryTitle([item.vod_name, item.vod_remarks, item.vod_class].join(" "))) score -= 260;
@@ -1014,7 +1054,7 @@ function scoreSearchMatch(item, payload, source, keyword) {
 
 async function searchSource(source, payload, keywords, timeout) {
     const results = [];
-    const keywordLimit = payload.animeSpecialSeason ? 14 : payload.longAnime ? 8 : 5;
+    const keywordLimit = payload.animeSpecialSeason ? 14 : payload.longAnime ? 8 : timeout <= 2600 ? 3 : 5;
     for (const keyword of keywords.slice(0, keywordLimit)) {
         try {
             const data = await requestCms(source, { ac: "detail", wd: keyword }, timeout);
@@ -1036,33 +1076,7 @@ async function searchSource(source, payload, keywords, timeout) {
     return results;
 }
 
-async function searchCandidates(payload) {
-    const keywords = buildSearchKeywords(payload);
-    const primarySettled = await Promise.allSettled(
-        PRIMARY_SOURCE_IDS.map(id => searchSource(SOURCE_MAP[id], payload, keywords, 4200))
-    );
-    let results = primarySettled.flatMap(item => item.status === "fulfilled" ? item.value : []);
-    let searchPayload = payload;
-
-    if (results.length < 4) {
-        const externalAliases = await fetchExternalAliases(payload);
-        if (externalAliases.length) {
-            searchPayload = Object.assign({}, payload, { aliases: uniq([...(payload.aliases || []), ...externalAliases]) });
-            const aliasKeywords = buildSearchKeywords(searchPayload);
-            const aliasSettled = await Promise.allSettled(
-                PRIMARY_SOURCE_IDS.map(id => searchSource(SOURCE_MAP[id], searchPayload, aliasKeywords, 4200))
-            );
-            results = results.concat(aliasSettled.flatMap(item => item.status === "fulfilled" ? item.value : []));
-        }
-    }
-
-    if (results.length < 8) {
-        const fallbackSettled = await Promise.allSettled(
-            FALLBACK_SOURCE_IDS.map(id => searchSource(SOURCE_MAP[id], searchPayload, buildSearchKeywords(searchPayload).slice(0, 3), 3200))
-        );
-        results = results.concat(fallbackSettled.flatMap(item => item.status === "fulfilled" ? item.value : []));
-    }
-
+function dedupeCandidates(results, limit) {
     results.sort((a, b) => b.score - a.score);
 
     const deduped = [];
@@ -1072,10 +1086,45 @@ async function searchCandidates(payload) {
         if (seen.has(key)) continue;
         seen.add(key);
         deduped.push(result);
-        if (deduped.length >= 16) break;
+        if (deduped.length >= limit) break;
     }
+    return deduped;
+}
+
+async function searchSourcesByIds(sourceIds, payload, keywords, timeout) {
+    const settled = await Promise.allSettled(
+        sourceIds.map(id => searchSource(SOURCE_MAP[id], payload, keywords, timeout))
+    );
+    return settled.flatMap(item => item.status === "fulfilled" ? item.value : []);
+}
+
+async function searchCandidates(payload, options) {
+    const searchOptions = options || {};
+    const keywords = buildSearchKeywords(payload);
+    const fastIds = FAST_SOURCE_IDS.filter(id => PRIMARY_SOURCE_IDS.includes(id));
+    const fullIds = PRIMARY_SOURCE_IDS.filter(id => !fastIds.includes(id));
+    let results = await searchSourcesByIds(fastIds, payload, keywords.slice(0, 3), 2600);
+    let searchPayload = payload;
+
+    if (!searchOptions.fastOnly && fullIds.length && results.length < 8) {
+        results = results.concat(await searchSourcesByIds(fullIds, payload, keywords, 3600));
+    }
+
+    if (!searchOptions.fastOnly && results.length < 4) {
+        const externalAliases = await fetchExternalAliases(payload);
+        if (externalAliases.length) {
+            searchPayload = Object.assign({}, payload, { aliases: uniq([...(payload.aliases || []), ...externalAliases]) });
+            const aliasKeywords = buildSearchKeywords(searchPayload);
+            results = results.concat(await searchSourcesByIds(PRIMARY_SOURCE_IDS, searchPayload, aliasKeywords, 3600));
+        }
+    }
+
+    if (!searchOptions.fastOnly && results.length < 8) {
+        results = results.concat(await searchSourcesByIds(FALLBACK_SOURCE_IDS, searchPayload, buildSearchKeywords(searchPayload).slice(0, 3), 3000));
+    }
+
     return {
-        candidates: deduped,
+        candidates: dedupeCandidates(results, searchOptions.fastOnly ? 10 : 16),
         payload: searchPayload
     };
 }
@@ -1104,6 +1153,7 @@ function scorePlayGroup(groupName, groupText, episodes, source) {
     if (text.includes("share/")) score -= 25;
     if (text.includes("quark") || text.includes("aliyun") || text.includes("115") || text.includes("迅雷")) score -= 45;
     if (isAuxiliaryTitle(groupName)) score -= 120;
+    score += qualityScore(`${groupName} ${groupText}`);
     score += Math.min(episodes.length, 80);
     return score;
 }
@@ -1286,6 +1336,24 @@ function dedupeStreams(streams) {
     return deduped;
 }
 
+async function resolveCandidateStreams(candidates, payload, limit) {
+    const streamGroups = await Promise.allSettled(
+        candidates.slice(0, limit).map(candidate => fetchStreamsByCandidate(candidate, payload))
+    );
+    return streamGroups
+        .flatMap(item => item.status === "fulfilled" ? item.value : [])
+        .sort((a, b) => b.score - a.score);
+}
+
+function hasEnoughStreams(streams, payload) {
+    const filtered = filterExactEpisodeStreams(streams, payload);
+    if (filtered.length >= 5) return true;
+    if ((payload.domesticVariety || payload.isVariety) && payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity)) {
+        return filtered.length > 0;
+    }
+    return false;
+}
+
 function filterExactEpisodeStreams(streams, payload) {
     if (isMoviePayload(payload)) return streams;
     let filteredStreams = streams;
@@ -1338,15 +1406,20 @@ async function loadResource(params) {
     if (enrichedParams !== rawParams) payload = buildStreamPayload(enrichedParams);
     if (!payload.title && !payload.seriesName) return [];
 
-    const searchResult = await searchCandidates(payload);
-    const candidates = searchResult.candidates;
-    const resolvedPayload = searchResult.payload || payload;
-    const streamGroups = await Promise.allSettled(
-        candidates.slice(0, 12).map(candidate => fetchStreamsByCandidate(candidate, resolvedPayload))
-    );
-    const streams = streamGroups
-        .flatMap(item => item.status === "fulfilled" ? item.value : [])
-        .sort((a, b) => b.score - a.score);
+    let searchResult = await searchCandidates(payload, { fastOnly: true });
+    let candidates = searchResult.candidates;
+    let resolvedPayload = searchResult.payload || payload;
+    let streams = await resolveCandidateStreams(candidates, resolvedPayload, 6);
+
+    if (!hasEnoughStreams(streams, resolvedPayload)) {
+        searchResult = await searchCandidates(payload, { fastOnly: false });
+        candidates = searchResult.candidates;
+        resolvedPayload = searchResult.payload || payload;
+        const resolvedKeys = new Set(candidates.slice(0, 6).map(candidate => `${candidate.sourceId}:${candidate.vodId}`));
+        const remainingCandidates = candidates.filter(candidate => !resolvedKeys.has(`${candidate.sourceId}:${candidate.vodId}`));
+        const moreStreams = await resolveCandidateStreams(remainingCandidates, resolvedPayload, 8);
+        streams = streams.concat(moreStreams).sort((a, b) => b.score - a.score);
+    }
 
     return dedupeStreams(filterExactEpisodeStreams(streams, resolvedPayload));
 }

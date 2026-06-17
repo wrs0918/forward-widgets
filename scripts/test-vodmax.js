@@ -31,7 +31,7 @@ const context = {
             async get(path) {
                 const fixtures = {
                     "tv/231620/season/3/episode/1": { name: "先导片上：显眼包", air_date: "2025-10-18" },
-                    "tv/231620/season/3/episode/4": { name: "第1期下：出发家族爆笑闯关", air_date: "2025-10-26" },
+                    "tv/231620/season/3/episode/4": { name: "第1期下：出发家族爆笑闯关", air_date: "2025-10-25" },
                     "tv/231620/season/3/episode/5": { name: "第1 期加更：出发家族加更", air_date: "2025-10-27" },
                     "tv/231620/season/3/episode/6": { name: "第一期还有加更：出发家族还有加更", air_date: "2025-10-28" },
                     "tv/233365/season/6/episode/2": { name: "第1期中：入住桃花坞", air_date: "2026-05-14" }
@@ -90,10 +90,15 @@ const OFFICIAL_STYLE_CASES = [
     ["iqiyi normal part", "06-12 第9期: 下", { dateCode: "20260612", issueNumber: 9, part: "down", kind: "normal" }],
     ["iqiyi special plus", "20260517特别加更上", { dateCode: "20260517", part: "up", kind: "plus" }],
     ["tencent plus", "第1期 万事屋加更", { issueNumber: 1, kind: "plus" }],
+    ["tencent early up", "超前集结上：全员集合", { part: "up", kind: "early" }],
+    ["tencent early egg", "超前彩蛋：爆笑名场面", { kind: "behind" }],
     ["tencent unlock", "副本解锁中第1期", { issueNumber: 1, part: "mid", kind: "behind" }],
     ["youku pure", "第3期纯享版：舞台完整版", { issueNumber: 3, kind: "pure" }],
     ["youku date part", "06-12 第3期: 下", { dateCode: "20260612", issueNumber: 3, part: "down", kind: "normal" }],
     ["mgtv early", "超前营业第5期", { issueNumber: 5, kind: "early" }],
+    ["mgtv app member", "APP专享会员版第2期", { issueNumber: 2, kind: "member" }],
+    ["mgtv stage pure", "舞台纯享版第6期", { issueNumber: 6, kind: "pure" }],
+    ["mgtv fancam", "直拍第3期：舞台直拍", { issueNumber: 3, kind: "behind" }],
     ["mgtv special", "端午特辑", { kind: "special" }],
     ["bilibili part", "第2期（上）", { issueNumber: 2, part: "up", kind: "normal" }],
     ["bilibili plus", "第1期加更", { issueNumber: 1, kind: "plus" }],
@@ -166,7 +171,7 @@ const CASES = [
         params: { type: "tv", title: "种地吧", seriesName: "种地吧", season: 4, episodeName: "第9期上", airDate: "2026-06-11" },
         validate(streams) {
             assert(streams.length > 0, `${this.label}: expected streams`);
-            assertAllInclude(streams, /20260611|第0?9期.*上|上.*第0?9期/, this.label);
+            assertAllInclude(streams, /20260611.*上|20260612.*上|第0?9期.*上|上.*第0?9期/, this.label);
             assertNoneInclude(streams.map(stream => ({ name: stream.name, description: "" })), /加更|纯享|花絮|预告|解说|短视频/, this.label);
         }
     },
@@ -230,7 +235,16 @@ const CASES = [
         validate(streams) {
             assert(streams.length > 0, `${this.label}: expected streams`);
             assertAllNamesInclude(streams.slice(0, 8), /第0?1期.*下|20251026.*下/, this.label);
-            assertNoNamesInclude(streams.slice(0, 8), /第0?1期上|20251025|第0?2期|加更|纯享/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /第0?1期上|第0?4期|加更|纯享/, this.label);
+        }
+    },
+    {
+        label: "variety issue down keeps identity when air date drifts",
+        params: { type: "tv", title: "现在就出发", seriesName: "现在就出发", season: 3, episode: 4, episodeName: "第1期下：出发家族爆笑闯关", airDate: "2025-10-25" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllNamesInclude(streams.slice(0, 8), /第0?1期.*下|20251026.*下/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /第0?4期|第0?1期上|加更|纯享|20251025(?!.*下)/, this.label);
         }
     },
     {
