@@ -78,6 +78,15 @@ node scripts/compare-anime-matching.js
 
 如果后续更新了脚本，只要仓库路径不变，Raw 地址也可以继续复用。
 
+## 原始项目与致谢
+
+本仓库是在个人使用场景下维护的 Forward Widget 集合，感谢下面项目和作者提供的基础能力、开发文档和原始实现思路：
+
+1. [ForwardWidgets](https://github.com/InchStudio/ForwardWidgets)：Forward Widget 官方示例与开发文档，本仓库的模块结构和 `stream` 资源模块接入方式参考了该项目。
+2. [MakkaPakka518/FW - VodMax.js](https://github.com/MakkaPakka518/FW/blob/main/widgets/normal/VodMax.js)：原始 VodMax 资源聚合模块，本仓库的 `VodMax.js` 在其思路基础上做了源池筛选、季集匹配、国内综艺期身份匹配、长篇动漫和第 0 季/OVA 等自用增强。
+
+如果你需要更通用或更贴近官方示例的 Widget，可以优先查看原始项目；本仓库主要服务于作者自己的 Forward 使用习惯和 NAS/家庭网络环境。
+
 ## 仓库结构
 
 ```text
