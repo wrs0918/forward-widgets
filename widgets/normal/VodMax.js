@@ -40,7 +40,7 @@ WidgetMetadata = {
     title: "VOD资源聚合",
     description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "工位划水冠军",
-    version: "5.4.6",
+    version: "5.4.7",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 900,
@@ -125,13 +125,112 @@ function normalizeCompactText(value) {
         .replace(/[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]/g, roman => ({ "Ⅰ": "1", "Ⅱ": "2", "Ⅲ": "3", "Ⅳ": "4", "Ⅴ": "5", "Ⅵ": "6", "Ⅶ": "7", "Ⅷ": "8", "Ⅸ": "9", "Ⅹ": "10" }[roman] || roman));
 }
 
+const CJK_VARIANT_CHARS = {
+    "偵": "侦",
+    "劇": "剧",
+    "場": "场",
+    "國": "国",
+    "動畫": "动画",
+    "畫": "画",
+    "異": "异",
+    "獸": "兽",
+    "賊": "贼",
+    "龍": "龙",
+    "鬥": "斗",
+    "話": "话",
+    "學": "学",
+    "樂": "乐",
+    "們": "们",
+    "體": "体",
+    "夢": "梦"
+};
+
+const ORTHOGRAPHIC_TITLE_VARIANTS = [
+    ["工房", "工坊"],
+    ["夢", "梦"],
+    ["異獸", "异兽"],
+    ["名偵探", "名侦探"],
+    ["海賊", "海贼"]
+];
+
+const FALLBACK_TITLE_ALIAS_GROUPS = [
+    { media: "anime", longForm: true, titles: ["航海王", "海贼王", "海賊王", "ONE PIECE"] },
+    { media: "anime", longForm: true, titles: ["火影忍者", "Naruto"] },
+    { media: "anime", longForm: true, titles: ["博人传：火影忍者新时代", "博人传", "BORUTO", "Boruto: Naruto Next Generations"] },
+    { media: "anime", longForm: true, titles: ["蜡笔小新", "蠟筆小新", "クレヨンしんちゃん", "Crayon Shin-chan"] },
+    { media: "anime", longForm: false, titles: ["尖帽子的魔法工房", "尖帽子的魔法工坊", "Witch Hat Atelier", "とんがり帽子のアトリエ"] },
+    { media: "anime", longForm: false, titles: ["异兽魔都", "異獸魔都", "Dorohedoro"] },
+    { media: "anime", longForm: true, titles: ["哆啦A梦", "哆啦A夢", "ドラえもん"] },
+    { media: "anime", longForm: true, titles: ["名侦探柯南", "名偵探柯南", "Detective Conan"] }
+];
+
+function normalizeCjkVariants(value) {
+    let text = safeText(value);
+    for (const [from, to] of Object.entries(CJK_VARIANT_CHARS)) {
+        text = text.replace(new RegExp(from, "g"), to);
+    }
+    return text;
+}
+
 function looseTitleText(value) {
-    return normalizeCompactText(value)
-        .replace(/工房/g, "工坊")
-        .replace(/航海王/g, "海贼王")
-        .replace(/海賊王/g, "海贼王")
-        .replace(/哆啦a梦/g, "哆啦a夢")
-        .replace(/名偵探柯南/g, "名侦探柯南");
+    return normalizeCjkVariants(normalizeCompactText(value))
+        .replace(/工房/g, "工坊");
+}
+
+function titleMatchesAliasGroup(text, group, options) {
+    const allowEmbeddedAlias = Boolean(options && options.allowEmbeddedAlias);
+    const haystack = normalizeText(text);
+    const looseHaystack = looseTitleText(text);
+    if (!haystack) return false;
+    const matchesAlias = (target, alias) => {
+        if (!target || !alias) return false;
+        if (target === alias) return true;
+        if (alias.length >= 4 && target.length >= 3 && alias.startsWith(target)) return true;
+        if (allowEmbeddedAlias && target.includes(alias)) {
+            const index = target.indexOf(alias);
+            const before = target.slice(0, index);
+            return index > 0 && /[：:之\-_\s]$/.test(before);
+        }
+        if (target.startsWith(alias)) {
+            const suffix = target.slice(alias.length);
+            return /^(?:第?[一二两三四五六七八九十\d]{1,3}季|season\d{1,2}|s\d{1,2}|\d{1,2})$/.test(suffix);
+        }
+        return false;
+    };
+    return group.titles.some(title => {
+        const normalized = normalizeText(title);
+        const loose = looseTitleText(title);
+        return normalized && (matchesAlias(haystack, normalized) || matchesAlias(looseHaystack, loose));
+    });
+}
+
+function hasSeparatedEmbeddedTitle(text, target) {
+    if (!text || !target || !text.includes(target)) return false;
+    const index = text.indexOf(target);
+    if (index <= 0) return false;
+    return /[：:之\-_]$/.test(text.slice(0, index));
+}
+
+function anyTitleMatchesAliasGroup(values, group, options) {
+    return values.map(safeText).filter(Boolean).some(value => titleMatchesAliasGroup(value, group, options));
+}
+
+function matchesFallbackAnimeTitle(values, options) {
+    const list = Array.isArray(values) ? values : [values];
+    return FALLBACK_TITLE_ALIAS_GROUPS.some(group => group.media === "anime" && anyTitleMatchesAliasGroup(list, group, options));
+}
+
+function matchesFallbackLongAnimeTitle(payload) {
+    const fields = [payload.title, payload.seriesName, payload.rawParams && payload.rawParams.originalTitle, payload.rawParams && payload.rawParams.originalName];
+    return FALLBACK_TITLE_ALIAS_GROUPS.some(group => group.media === "anime" && group.longForm && anyTitleMatchesAliasGroup(fields, group));
+}
+
+function isHighEpisodeTvPayload(payload) {
+    const ep = Number(payload && payload.episode) || extractIssueNumber(payload && payload.episodeName);
+    if (ep < 80 || !payload || payload.mediaType !== "tv") return false;
+    if (isLikelyVariety(payload, null)) return false;
+    const text = [payload.title, payload.seriesName, payload.episodeName, payload.rawParams && payload.rawParams.originalTitle, payload.rawParams && payload.rawParams.originalName].map(safeText).join(" ");
+    return isAnimeText(text) || /[\u3040-\u30ff]/.test(text);
 }
 
 function chineseNumberToInt(value) {
@@ -233,8 +332,9 @@ function isAnimeText(text) {
 }
 
 function isAnimePayload(payload, item) {
-    const text = [payload.title, payload.seriesName, payload.episodeName, item && item.vod_class, item && item.type_name, item && item.vod_area, item && item.vod_remarks, item && item.vod_name].map(safeText).join(" ");
-    return isAnimeText(text) || /(海贼王|航海王|one\s*piece|名侦探柯南|火影忍者|博人传|蜡笔小新|哆啦a?梦|尖帽子|异兽魔都|dorohedoro|witch\s*hat|咒术回战|鬼灭之刃)/i.test(text);
+    const fields = [payload.title, payload.seriesName, payload.episodeName, item && item.vod_class, item && item.type_name, item && item.vod_area, item && item.vod_remarks, item && item.vod_name];
+    const text = fields.map(safeText).join(" ");
+    return isAnimeText(text) || matchesFallbackAnimeTitle(fields, { allowEmbeddedAlias: Boolean(item) }) || isHighEpisodeTvPayload(payload);
 }
 
 function isSpecialSeasonPayload(payload) {
@@ -264,9 +364,8 @@ function extractTotalEpisodes(text) {
 
 function isLongAnimePayload(payload) {
     const ep = Number(payload.episode) || extractIssueNumber(payload.episodeName);
-    const text = [payload.title, payload.seriesName].map(safeText).join(" ");
-    if (/(海贼王|航海王|one\s*piece|名侦探柯南|火影忍者|博人传|蜡笔小新|哆啦a?梦)/i.test(text)) return true;
-    return isAnimePayload(payload, null) && ep >= 80;
+    if (matchesFallbackLongAnimeTitle(payload)) return true;
+    return (isAnimePayload(payload, null) || isHighEpisodeTvPayload(payload)) && ep >= 80;
 }
 
 function isLongAnimeItem(item, episodes) {
@@ -275,18 +374,26 @@ function isLongAnimeItem(item, episodes) {
     return isAnimePayload({}, item) && total >= 80;
 }
 
-function animeTitleVariants(title) {
+function titleWritingVariants(title) {
     const value = safeText(title);
     if (!value) return [];
     const variants = [value];
-    if (value.includes("工房")) variants.push(value.replace(/工房/g, "工坊"));
-    if (value.includes("工坊")) variants.push(value.replace(/工坊/g, "工房"));
-    if (/航海王|海贼王|海賊王|one\s*piece/i.test(value)) variants.push("海贼王", "航海王", "ONE PIECE");
-    if (/尖帽子|witch\s*hat|とんがり帽子/i.test(value)) variants.push("尖帽子的魔法工坊", "尖帽子的魔法工房", "Witch Hat Atelier", "とんがり帽子のアトリエ");
-    if (/异兽魔都|異獸魔都|dorohedoro/i.test(value)) variants.push("异兽魔都", "Dorohedoro");
-    if (/哆啦a?梦|哆啦a?夢|ドラえもん/i.test(value)) variants.push("哆啦A梦", "哆啦A夢", "ドラえもん");
-    if (/名侦探柯南|名偵探柯南|conan/i.test(value)) variants.push("名侦探柯南", "名偵探柯南", "Detective Conan");
+    const normalizedCjk = normalizeCjkVariants(value);
+    if (normalizedCjk && normalizedCjk !== value) variants.push(normalizedCjk);
+    for (const [a, b] of ORTHOGRAPHIC_TITLE_VARIANTS) {
+        if (value.includes(a)) variants.push(value.replace(new RegExp(a, "g"), b));
+        if (value.includes(b)) variants.push(value.replace(new RegExp(b, "g"), a));
+    }
     return uniq(variants);
+}
+
+function fallbackTitleAliases(payload) {
+    const fields = [payload.title, payload.seriesName, payload.rawParams && payload.rawParams.originalTitle, payload.rawParams && payload.rawParams.originalName];
+    const aliases = [];
+    for (const group of FALLBACK_TITLE_ALIAS_GROUPS) {
+        if (anyTitleMatchesAliasGroup(fields, group)) aliases.push(...group.titles);
+    }
+    return cleanAliasList(aliases, payload);
 }
 
 function isLikelyVariety(payload, item) {
@@ -730,7 +837,7 @@ function cleanAliasList(values, payload) {
         const normalized = normalizeTitle(alias);
         if (!alias || alias.length < 2 || alias.length > 50) continue;
         if (blocked.has(normalized) || seen.has(normalized)) continue;
-        if (/列表|角色|人物|游戏|小說|小说|漫畫|漫画|原聲|原声|soundtrack/i.test(alias)) continue;
+        if (/列表|角色|人物|游戏|小說|小说|漫畫|漫画|原聲|原声|soundtrack|volume\s*\d+|vol\.\s*\d+|kitchen/i.test(alias)) continue;
         seen.add(normalized);
         aliases.push(alias);
     }
@@ -808,13 +915,52 @@ async function fetchJikanAliases(payload) {
     return cleanAliasList(aliases, payload);
 }
 
+function collectTmdbTitleFields(value, aliases) {
+    if (!value || typeof value !== "object") return;
+    aliases.push(value.title, value.name, value.original_title, value.original_name, value.english_name);
+    if (value.data && typeof value.data === "object") {
+        aliases.push(value.data.title, value.data.name, value.data.original_title, value.data.original_name);
+    }
+}
+
+async function fetchTmdbTitleAliases(payload) {
+    if (!payload.tmdbId || !Widget.tmdb || typeof Widget.tmdb.get !== "function") return [];
+    const tmdbId = normalizeTmdbNumericId(payload.tmdbId);
+    if (!tmdbId) return [];
+
+    const type = payload.mediaType === "movie" ? "movie" : "tv";
+    const aliases = [];
+    const paths = [
+        `${type}/${tmdbId}/alternative_titles`,
+        `${type}/${tmdbId}/translations`
+    ];
+
+    for (const path of paths) {
+        try {
+            const data = unwrapData(await Widget.tmdb.get(path, { params: { language: "zh-CN" } }));
+            collectTmdbTitleFields(data, aliases);
+            const rows = []
+                .concat(Array.isArray(data.titles) ? data.titles : [])
+                .concat(Array.isArray(data.results) ? data.results : [])
+                .concat(Array.isArray(data.translations) ? data.translations : []);
+            for (const row of rows.slice(0, 30)) collectTmdbTitleFields(row, aliases);
+        } catch (error) {
+            continue;
+        }
+    }
+
+    return cleanAliasList(aliases, payload);
+}
+
 async function fetchExternalAliases(payload) {
     const settled = await Promise.allSettled([
+        fetchTmdbTitleAliases(payload),
         fetchWikidataAliases(payload),
         fetchTvmazeAliases(payload),
         fetchJikanAliases(payload)
     ]);
-    return uniq(settled.flatMap(item => item.status === "fulfilled" ? item.value : []));
+    const dynamicAliases = settled.flatMap(item => item.status === "fulfilled" ? item.value : []);
+    return uniq([...fallbackTitleAliases(payload), ...dynamicAliases]);
 }
 
 function hasTmdbEpisodeLookupPayload(payload) {
@@ -899,10 +1045,10 @@ function buildStreamPayload(params) {
     ]);
     const seededAliases = uniq([
         ...aliases,
-        ...animeTitleVariants(title),
-        ...animeTitleVariants(seriesName),
-        ...animeTitleVariants(params.originalTitle),
-        ...animeTitleVariants(params.originalName)
+        ...titleWritingVariants(title),
+        ...titleWritingVariants(seriesName),
+        ...titleWritingVariants(params.originalTitle),
+        ...titleWritingVariants(params.originalName)
     ]);
 
     const payload = {
@@ -1026,14 +1172,21 @@ function isTitlePolluted(item, payload) {
     const rawItemTitle = safeText(item.vod_name);
     const title = normalizeTitle(payload.title);
     const series = normalizeTitle(payload.seriesName || payload.title);
-    const targets = uniq([title, series, ...payload.aliases.map(normalizeTitle)]).filter(Boolean);
+    const targets = uniq([title, series, ...payload.aliases.map(normalizeTitle), ...fallbackTitleAliases(payload).map(normalizeTitle)]).filter(Boolean);
 
     const requestedSpecial = payload.specialSeason || hasAnimeSpecialEvidence([payload.title, payload.seriesName, payload.episodeName].join(" "));
     if (/前传|后传|外传|番外|衍生/.test(rawItemTitle) && targets.some(target => itemTitle.includes(target)) && !targets.includes(itemTitle)) return true;
     if (payload.longAnime && !requestedSpecial && /(特别编辑版|剧场版|劇場版|真人版|真人|live\s*action|歌姬|女王|总集篇|総集編|特别篇|番外|外传|ova|oad|sp)/i.test(rawItemTitle)) return true;
+    if (payload.longAnime && !requestedSpecial && targets.some(target => target && itemTitle.startsWith(target) && itemTitle !== target) && /(：|:|之|大电影|电影|the\s*movie|movie|粉丝来信|来信|狂热行动|强者天下|黄金城|红发|歌姬)/i.test(rawItemTitle)) return true;
+    if (payload.longAnime && !requestedSpecial && targets.some(target => {
+        if (!target || itemTitle === target || !itemTitle.startsWith(target)) return false;
+        const suffix = itemTitle.slice(target.length);
+        if (!suffix || /^\d+$/.test(suffix) || /^第[一二两三四五六七八九十\d]+季$/.test(suffix)) return false;
+        return true;
+    })) return true;
     if (payload.longAnime && !requestedSpecial && /(篇|篇章)/.test(rawItemTitle) && !/(篇|篇章)/.test([payload.title, payload.seriesName].join(" "))) return true;
     if (payload.longAnime && !/(博人传|博人傳|新世代|新时代|女王|王女|外传|番外|真人)/.test([payload.title, payload.seriesName].join(" ")) && /(博人传|博人傳|新世代|新时代|女王|王女|真人版|真人)/.test(rawItemTitle)) return true;
-    return targets.some(target => itemTitle.includes(target) && !itemTitle.startsWith(target));
+    return targets.some(target => itemTitle.includes(target) && !itemTitle.startsWith(target) && !(payload.longAnime && hasSeparatedEmbeddedTitle(itemTitle, target)));
 }
 
 function isMovieTitleMatch(item, payload) {
@@ -1178,7 +1331,7 @@ async function searchCandidates(payload, options) {
         results = results.concat(await searchSourcesByIds(fullIds, payload, keywords, 3600));
     }
 
-    if (!searchOptions.fastOnly && results.length < 4) {
+    if (!searchOptions.fastOnly && (results.length < 4 || payload.longAnime || payload.animeSpecialSeason)) {
         const externalAliases = await fetchExternalAliases(payload);
         if (externalAliases.length) {
             searchPayload = Object.assign({}, payload, { aliases: uniq([...(payload.aliases || []), ...externalAliases]) });
@@ -1517,13 +1670,13 @@ async function loadResource(params) {
     let candidates = searchResult.candidates;
     let resolvedPayload = searchResult.payload || payload;
     let streams = await resolveCandidateStreams(candidates, resolvedPayload, 6);
+    const resolvedCandidateKeys = new Set(candidates.slice(0, 6).map(candidate => `${candidate.sourceId}:${candidate.vodId}`));
 
     if (!hasEnoughStreams(streams, resolvedPayload)) {
         searchResult = await searchCandidates(payload, { fastOnly: false });
         candidates = searchResult.candidates;
         resolvedPayload = searchResult.payload || payload;
-        const resolvedKeys = new Set(candidates.slice(0, 6).map(candidate => `${candidate.sourceId}:${candidate.vodId}`));
-        const remainingCandidates = candidates.filter(candidate => !resolvedKeys.has(`${candidate.sourceId}:${candidate.vodId}`));
+        const remainingCandidates = candidates.filter(candidate => !resolvedCandidateKeys.has(`${candidate.sourceId}:${candidate.vodId}`));
         const moreStreams = await resolveCandidateStreams(remainingCandidates, resolvedPayload, 8);
         streams = streams.concat(moreStreams).sort((a, b) => b.score - a.score);
     }
