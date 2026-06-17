@@ -52,6 +52,17 @@ function assertNoneInclude(streams, pattern, label) {
     assert(!failed.length, `${label}: forbidden streams:\n${failed.map(stream => `${stream.name} | ${stream.description}`).join("\n")}`);
 }
 
+function assertAllNamesInclude(streams, pattern, label) {
+    assert(streams.length > 0, `${label}: expected streams`);
+    const failed = streams.filter(stream => !pattern.test(stream.name));
+    assert(!failed.length, `${label}: unexpected stream names:\n${failed.map(stream => `${stream.name} | ${stream.description}`).join("\n")}`);
+}
+
+function assertNoNamesInclude(streams, pattern, label) {
+    const failed = streams.filter(stream => pattern.test(stream.name));
+    assert(!failed.length, `${label}: forbidden stream names:\n${failed.map(stream => `${stream.name} | ${stream.description}`).join("\n")}`);
+}
+
 function assertIdentity(text, expected, label) {
     const identity = context.buildEpisodeIdentity(text, { year: "2026", releaseDate: "2026-06-12" });
     for (const [key, value] of Object.entries(expected)) {
@@ -67,9 +78,15 @@ const OFFICIAL_STYLE_CASES = [
     ["iqiyi normal part", "06-12 第9期: 下", { dateCode: "20260612", issueNumber: 9, part: "down", kind: "normal" }],
     ["iqiyi special plus", "20260517特别加更上", { dateCode: "20260517", part: "up", kind: "plus" }],
     ["tencent plus", "第1期 万事屋加更", { issueNumber: 1, kind: "plus" }],
+    ["tencent unlock", "副本解锁中第1期", { issueNumber: 1, part: "mid", kind: "behind" }],
     ["youku pure", "第3期纯享版：舞台完整版", { issueNumber: 3, kind: "pure" }],
+    ["youku date part", "06-12 第3期: 下", { dateCode: "20260612", issueNumber: 3, part: "down", kind: "normal" }],
     ["mgtv early", "超前营业第5期", { issueNumber: 5, kind: "early" }],
-    ["bilibili part", "第2期（上）", { issueNumber: 2, part: "up", kind: "normal" }]
+    ["mgtv special", "端午特辑", { kind: "special" }],
+    ["bilibili part", "第2期（上）", { issueNumber: 2, part: "up", kind: "normal" }],
+    ["bilibili plus", "第1期加更", { issueNumber: 1, kind: "plus" }],
+    ["vod pilot", "先导片上：显眼包", { part: "up", kind: "special" }],
+    ["vod live", "空降直播", { kind: "special" }]
 ];
 
 const CASES = [
@@ -155,6 +172,51 @@ const CASES = [
             assert(streams.length > 0, `${this.label}: expected streams`);
             assertAllInclude(streams, /纯享.*第0?5期|第0?5期.*纯享/, this.label);
             assertNoneInclude(streams, /超前|加更|花絮|预告|解说/, this.label);
+        }
+    },
+    {
+        label: "variety pilot title beats episode number",
+        params: { type: "tv", title: "现在就出发", seriesName: "现在就出发", season: 3, episode: 1, episodeName: "先导片上：显眼包" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllNamesInclude(streams.slice(0, 8), /先导片上|20251018.*先导片/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /第0?1期上|第0?1期下|第0?2期|加更|纯享/, this.label);
+        }
+    },
+    {
+        label: "variety pilot down beats episode number",
+        params: { type: "tv", title: "现在就出发", seriesName: "现在就出发", season: 3, episode: 2, episodeName: "先导片下：显眼包" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllNamesInclude(streams.slice(0, 8), /先导片下|20251019.*先导片/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /第0?2期|第0?1期上|加更|纯享/, this.label);
+        }
+    },
+    {
+        label: "variety issue part up",
+        params: { type: "tv", title: "五十公里桃花坞", seriesName: "五十公里桃花坞", season: 6, episode: 1, episodeName: "第1期上：入住桃花坞", duration: 120 },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllNamesInclude(streams.slice(0, 8), /第0?1期.*上|20260514.*上/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /第0?2期|第0?1期.*中|第0?1期.*下|加更|纯享/, this.label);
+        }
+    },
+    {
+        label: "variety issue part mid beats episode number",
+        params: { type: "tv", title: "五十公里桃花坞", seriesName: "五十公里桃花坞", season: 6, episode: 2, episodeName: "第1期中：入住桃花坞", duration: 120 },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllNamesInclude(streams.slice(0, 8), /第0?1期.*中|20260514.*中/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /第0?2期|第0?1期.*上|第0?1期.*下|加更|纯享/, this.label);
+        }
+    },
+    {
+        label: "variety issue part down beats episode number",
+        params: { type: "tv", title: "五十公里桃花坞", seriesName: "五十公里桃花坞", season: 6, episode: 3, episodeName: "第1期下：入住桃花坞", duration: 120 },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected streams`);
+            assertAllNamesInclude(streams.slice(0, 8), /第0?1期.*下|20260515.*下/, this.label);
+            assertNoNamesInclude(streams.slice(0, 8), /第0?3期|第0?2期|第0?1期.*上|第0?1期.*中|加更|纯享/, this.label);
         }
     },
     {

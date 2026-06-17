@@ -45,10 +45,20 @@ const SOURCES = [
 const PLATFORM_SAMPLES = [
     ["爱奇艺", "种地吧4", "06-12 第9期: 下", "2026-06-12"],
     ["爱奇艺", "种地吧4", "20260517特别加更上", "2026-05-17"],
+    ["爱奇艺", "五十公里桃花坞6", "20260514中", "2026-05-14"],
+    ["爱奇艺", "五十公里桃花坞6", "20260518超越目标坞民上", "2026-05-18"],
     ["腾讯视频", "开始推理吧第四季", "第1期 万事屋加更", ""],
+    ["腾讯视频", "开始推理吧第四季", "副本解锁中第1期", ""],
     ["优酷", "有歌2026", "06-12 第3期: 下", "2026-06-12"],
+    ["优酷", "综艺样式", "外传第2期 游戏特辑", ""],
     ["芒果TV", "歌手2024", "超前营业第5期", ""],
-    ["B站", "综艺样式", "第2期（上）", ""]
+    ["芒果TV", "歌手2024", "纯享版第5期", ""],
+    ["芒果TV", "歌手2024", "端午特辑", ""],
+    ["B站", "综艺样式", "第2期（上）", ""],
+    ["B站", "综艺样式", "第1期加更", ""],
+    ["VOD", "现在就出发第三季", "先导片上：显眼包", ""],
+    ["VOD", "现在就出发第三季", "空降直播", ""],
+    ["VOD", "现在就出发第三季", "还有加更", ""]
 ];
 
 const VOD_CASES = [
@@ -71,17 +81,44 @@ const VOD_CASES = [
         label: "TMDB-like: 歌手2024 纯享第5期",
         keyword: "歌手2024",
         payload: { type: "tv", title: "歌手2024", seriesName: "歌手2024", episodeName: "纯享版第5期" }
+    },
+    {
+        label: "TMDB-like: 现在就出发 S3 先导片上",
+        keyword: "现在就出发第三季",
+        payload: { type: "tv", title: "现在就出发", seriesName: "现在就出发", season: 3, episode: 1, episodeName: "先导片上：显眼包" }
+    },
+    {
+        label: "TMDB-like: 现在就出发 S3 先导片下",
+        keyword: "现在就出发第三季",
+        payload: { type: "tv", title: "现在就出发", seriesName: "现在就出发", season: 3, episode: 2, episodeName: "先导片下：显眼包" }
+    },
+    {
+        label: "TMDB-like: 桃花坞 S6 第1期中",
+        keyword: "五十公里桃花坞6",
+        payload: { type: "tv", title: "五十公里桃花坞", seriesName: "五十公里桃花坞", season: 6, episode: 2, episodeName: "第1期中：入住桃花坞", duration: 120 }
     }
 ];
 
-function identitySummary(text, payload) {
-    const identity = context.buildEpisodeIdentity(text, payload || {});
+function styleName(identity) {
+    if (identity.dateCodes.length && identity.part) return "date-part";
+    if (identity.kind !== "normal" && identity.issueNumber) return `${identity.kind}-issue`;
+    if (identity.kind !== "normal") return identity.kind;
+    if (identity.issueNumber && identity.part) return "issue-part";
+    if (identity.issueNumber) return "issue";
+    if (identity.part) return "part-only";
+    return "plain";
+}
+
+function identitySummary(text, payload, presetIdentity) {
+    const identity = presetIdentity || context.buildEpisodeIdentity(text, payload || {});
     return [
         `date=${identity.dateCodes.join("/") || "-"}`,
         `issue=${identity.issueNumber || "-"}`,
         `part=${identity.part || "-"}`,
         `kind=${identity.kind}`,
-        `season=${identity.seasonNumber || "-"}`
+        `style=${styleName(identity)}`,
+        `fallback=${identity.usedEpisodeFallback ? "yes" : "no"}`,
+        `duration=${context.parseDurationMinutes(payload && (payload.duration || payload.runtime || payload.episodeDuration)) || "-"}`
     ].join(" ");
 }
 
@@ -106,7 +143,7 @@ function parseEpisodeLabels(playUrl) {
 async function printVodCase(testCase) {
     const payload = context.buildStreamPayload(testCase.payload);
     console.log(`\n## ${testCase.label}`);
-    console.log(`requested\t${testCase.payload.episodeName || "-"}\t${identitySummary([testCase.payload.episodeName, testCase.payload.airDate].join(" "), payload)}`);
+    console.log(`requested\t${testCase.payload.episodeName || "-"}\t${identitySummary([testCase.payload.episodeName, testCase.payload.airDate].join(" "), payload, payload.episodeIdentity)}`);
 
     for (const [sourceName, baseUrl] of SOURCES) {
         try {

@@ -36,7 +36,7 @@ WidgetMetadata = {
     title: "VOD资源聚合",
     description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "工位划水冠军",
-    version: "5.2.0",
+    version: "5.3.0",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 900,
@@ -326,6 +326,39 @@ function parseAllDateCodes(text, payload) {
     ]);
 }
 
+function parseDurationMinutes(value) {
+    if (value === null || value === undefined || value === "") return 0;
+    if (typeof value === "number") return value > 300 ? Math.round(value / 60) : Math.round(value);
+    const text = safeText(value);
+    if (!text || /20\d{2}[-/.年]/.test(text)) return 0;
+
+    let match = text.match(/(\d{1,3})\s*(?:分钟|分鐘|min|mins)/i);
+    if (match) return Number(match[1]);
+
+    match = text.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (match) {
+        const first = Number(match[1]);
+        const second = Number(match[2]);
+        const third = Number(match[3] || 0);
+        return third ? first * 60 + second + Math.round(third / 60) : first * 60 + second;
+    }
+
+    if (/^\d{2,3}$/.test(text)) return Number(text);
+    return 0;
+}
+
+function durationScore(requestedMinutes, item) {
+    const requested = Number(requestedMinutes) || 0;
+    if (!requested) return 0;
+    const actual = parseDurationMinutes(item && (item.vod_duration || item.duration || item.runtime));
+    if (!actual) return 0;
+    const delta = Math.abs(actual - requested);
+    if (delta <= 8) return 24;
+    if (delta <= 20) return 8;
+    if (delta >= 45) return -18;
+    return 0;
+}
+
 function extractVarietyTags(text) {
     const value = safeText(text);
     const tags = [];
@@ -375,12 +408,12 @@ function extractVarietyKind(text) {
     const value = safeText(text);
     if (/预告|trailer/i.test(value)) return "trailer";
     if (/解说|reaction|速看|短视频|直拍|\bcut\b/i.test(value)) return "cut";
-    if (/加更|加料|万事屋|推门加更|特别加更|补给站加更/.test(value)) return "plus";
+    if (/加更|加料|万事屋|推门加更|特别加更|补给站加更|还有加更/.test(value)) return "plus";
     if (/超前|抢先|提前|超前营业/.test(value)) return "early";
     if (/纯享|剧情纯享|纯享版|纯享典藏/.test(value)) return "pure";
     if (/会员|VIP|尊享/.test(value)) return "member";
     if (/花絮|幕后|彩蛋|未播|采访|专访|存档|副本解锁|补给站|迷妹|居民采访/.test(value)) return "behind";
-    if (/序篇?|先导片?|特别|番外|外传|特辑|发布会|大赏|端午企划|端午特辑|游戏特辑/.test(value)) return "special";
+    if (/序篇?|先导片?|特别|番外|外传|特辑|发布会|大赏|端午企划|端午特辑|游戏特辑|回顾|直播|集结篇|线下集结|线上集结|空降直播|名场面/.test(value)) return "special";
     return "normal";
 }
 
@@ -417,7 +450,7 @@ function extractIdentityTokens(text) {
         .replace(/\d{1,2}[-/.月]\d{1,2}日?/g, " ")
         .replace(/第\s*[一二两三四五六七八九十\d]{1,3}\s*(?:期|集|话|回)/g, " ")
         .replace(/[上下中](?:集|期|篇)?/g, " ")
-        .replace(/正片|完整版|加更版|纯享版|会员版|超前营业|先导片?|序篇?|特别加更|特别|番外|外传|花絮|彩蛋|幕后|未播|采访|专访|存档|副本解锁中?|补给站|万事屋|迷妹|居民采访|发布会|大赏|特辑|端午企划|端午特辑|游戏特辑|预告|解说|reaction|短视频|速看|直拍|cut/gi, " ")
+        .replace(/正片|完整版|加更版|纯享版|会员版|超前营业|先导片?|序篇?|特别加更|还有加更|特别|番外|外传|花絮|彩蛋|幕后|未播|采访|专访|存档|副本解锁中?|补给站|万事屋|迷妹|居民采访|发布会|大赏|特辑|端午企划|端午特辑|游戏特辑|回顾|直播|集结篇|线下集结|线上集结|空降直播|名场面|预告|解说|reaction|短视频|速看|直拍|cut/gi, " ")
         .replace(/[^\u4e00-\u9fa5A-Za-z0-9]+/g, " ");
     return uniq(value.split(/\s+/).map(part => part.trim()).filter(part => part.length >= 2 && part.length <= 12));
 }
@@ -431,7 +464,8 @@ function buildEpisodeIdentity(text, payload) {
         kind: extractVarietyKind(value),
         titleTokens: extractIdentityTokens(value),
         seasonNumber: extractSeasonNumber(value),
-        isAuxiliary: isAuxiliaryTitle(value)
+        isAuxiliary: isAuxiliaryTitle(value),
+        usedEpisodeFallback: false
     };
 }
 
@@ -444,14 +478,15 @@ function isDomesticVariety(payload, item) {
 function buildRequestedEpisodeIdentity(payload) {
     const text = [payload.episodeName || payload.title, payload.releaseDate].join(" ");
     const identity = buildEpisodeIdentity(text, payload);
-    if (!identity.issueNumber && Number(payload.episode) > 0 && !(identity.dateCodes && identity.dateCodes.length)) {
+    if (!identity.issueNumber && Number(payload.episode) > 0 && !hasReliableVarietyIdentity(identity)) {
         identity.issueNumber = Number(payload.episode);
+        identity.usedEpisodeFallback = true;
     }
     return identity;
 }
 
 function hasReliableVarietyIdentity(identity) {
-    return Boolean(identity && ((identity.dateCodes && identity.dateCodes.length) || identity.kind !== "normal" || identity.part || identity.titleTokens.length));
+    return Boolean(identity && ((identity.dateCodes && identity.dateCodes.length) || identity.kind !== "normal" || identity.part || identity.titleTokens.length || (identity.issueNumber && !identity.usedEpisodeFallback)));
 }
 
 function titleTokenOverlapScore(requestedTokens, labelTokens) {
@@ -493,9 +528,12 @@ function varietyIdentityScore(label, payload, item, index) {
     }
 
     score += titleTokenOverlapScore(requested.titleTokens, labelIdentity.titleTokens);
+    if (requested.titleTokens.length && labelIdentity.titleTokens.length && !titleTokenOverlapScore(requested.titleTokens, labelIdentity.titleTokens)) score -= 84;
 
     if (requested.issueNumber && labelIdentity.issueNumber) {
         score += requested.issueNumber === labelIdentity.issueNumber ? 120 : -240;
+    } else if (requested.issueNumber && !requested.usedEpisodeFallback && !labelIdentity.issueNumber && !requested.dateCodes.length) {
+        score -= 120;
     } else if (!hasReliableVarietyIdentity(requested) && ep && index + 1 === ep) {
         score += 16;
     }
@@ -507,9 +545,9 @@ function varietyIdentityScore(label, payload, item, index) {
 }
 
 function varietyIdentityMatchesStream(stream, payload) {
-    if (!payload.isVariety || !(payload.episodeIdentity || payload.domesticVariety)) return true;
+    if (!(payload.isVariety || payload.domesticVariety) || !(payload.episodeIdentity || payload.domesticVariety)) return true;
     const requested = payload.episodeIdentity || buildRequestedEpisodeIdentity(payload);
-    const text = stream.name;
+    const text = safeText(stream.name).split("·").pop();
     const identity = buildEpisodeIdentity(text, payload);
 
     if (requested.dateCodes.length) {
@@ -517,9 +555,12 @@ function varietyIdentityMatchesStream(stream, payload) {
     }
     if (requested.kind !== "normal" && identity.kind !== requested.kind) return false;
     if (requested.kind === "normal" && identity.kind !== "normal") return false;
-    if (requested.part && identity.part && requested.part !== identity.part) return false;
+    if (requested.part && identity.part !== requested.part) return false;
     if (requested.issueNumber && identity.issueNumber && requested.issueNumber !== identity.issueNumber) return false;
+    if (requested.issueNumber && !requested.usedEpisodeFallback && !identity.issueNumber && !requested.dateCodes.length) return false;
     if (requested.kind !== "normal" && requested.issueNumber && !identity.issueNumber) return false;
+    if (requested.issueNumber && !requested.usedEpisodeFallback && identity.issueNumber && requested.issueNumber !== identity.issueNumber) return false;
+    if (requested.titleTokens.length && identity.titleTokens.length && !titleTokenOverlapScore(requested.titleTokens, identity.titleTokens)) return false;
     return true;
 }
 
@@ -693,6 +734,7 @@ function buildStreamPayload(params) {
         varietyTags: extractVarietyTags([episodeName, title].join(" ")),
         isVariety: /(综艺|真人秀|脱口秀|晚会|演唱会|加更|超前|会员版|纯享|第\d+期|\d{8}期)/.test([title, seriesName, episodeName].join(" ")),
         year: year,
+        durationMinutes: parseDurationMinutes(params.duration || params.runtime || params.episodeRuntime || params.episodeDuration),
         aliases: seededAliases,
         link: safeText(params.link),
         rawParams: params || {}
@@ -1038,6 +1080,7 @@ function episodeMatchScore(label, payload, index, item, totalEpisodes) {
         if (payload.dateCodes && payload.dateCodes.length && !hasRequestedDate) score -= 260;
         if (/第\d+期|\d{8}/.test(rawLabel)) score += 24;
         if (!ep && !(payload.dateCodes && payload.dateCodes.length) && totalEpisodes && index === totalEpisodes - 1) score += 8;
+        score += durationScore(payload.durationMinutes, item);
     }
 
     const numbers = extractNumbers(rawLabel);
@@ -1156,7 +1199,7 @@ function filterExactEpisodeStreams(streams, payload) {
     if (payload.domesticVariety || (payload.isVariety && payload.episodeIdentity)) {
         const identityStreams = filteredStreams.filter(stream => varietyIdentityMatchesStream(stream, payload));
         if (identityStreams.length) filteredStreams = identityStreams;
-        if (payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity)) return filteredStreams;
+        if (payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity)) return identityStreams;
     }
 
     if (payload.dateCodes && payload.dateCodes.length) {

@@ -31,6 +31,8 @@ https://github.com/wrs0918/forward-msaber-adapter
 1. 默认只启用实测更稳定的普通影视 VOD 源，慢源和坏源不放进默认源池。
 2. 进入 Forward 详情页后，会按标题、季数、集数、日期期数去多个 VOD 源补搜，尽量避免“暂无可用资源”。
 3. 增强综艺、港剧、美剧、英剧、韩剧、动漫和电影的命名兼容，减少第二季误匹配第一季的问题。
+4. 国内综艺优先按 `episodeName` 里的日期、期号、上中下、先导/加更/纯享/超前/会员版等期身份匹配，`episode` 数字只在没有明确身份时作为弱兜底。
+5. 对长篇动漫按全局集数匹配，对第 0 季/OVA/特别篇要求有特别篇证据，避免串到普通季。
 
 这版不是写死某几个片名，而是按 Forward 传入的 `title`、`seriesName`、`episodeName`、`season`、`episode`、`airDate` 等字段做通用补源。
 
@@ -52,7 +54,7 @@ node scripts/evaluate-sources.js
 node scripts/test-vodmax.js
 ```
 
-测试覆盖电影、续作数字、剧集跨季、国内综艺日期期/普通期/加更期，以及美剧和动漫，避免修综艺时影响其他类型。
+测试覆盖电影、续作数字、剧集跨季、国内综艺日期期/普通期/加更期/先导片/上中下/纯享，以及美剧、韩剧、港剧、普通动漫、长篇动漫和第 0 季 OVA，避免修一种类型时影响其他类型。
 
 国内综艺命名对照可以用下面的只读脚本查看：
 
@@ -85,6 +87,8 @@ widgets/
 scripts/
   evaluate-sources.js
   test-vodmax.js
+  compare-variety-identity.js
+  compare-anime-matching.js
 ```
 
 ## 说明
