@@ -25,6 +25,21 @@ const context = {
                 } finally {
                     clearTimeout(timer);
                 }
+            },
+            async post(baseUrl, options = {}) {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), options.timeout || 5000);
+                try {
+                    const response = await fetch(baseUrl, {
+                        method: "POST",
+                        signal: controller.signal,
+                        headers: options.headers || {},
+                        body: JSON.stringify(options.data || {})
+                    });
+                    return { data: await response.text() };
+                } finally {
+                    clearTimeout(timer);
+                }
             }
         },
         tmdb: {
@@ -456,9 +471,9 @@ const CASES = [
     {
         label: "anime special season ova",
         params: { type: "tv", title: "异兽魔都", seriesName: "异兽魔都", season: 0, episode: 1, episodeName: "第1集", originalTitle: "Dorohedoro" },
-        validate(streams) {
-            assert(streams.length > 0, `${this.label}: expected OVA streams`);
-            assertAllInclude(streams, /OVA|OAD|SP|特别篇|番外|外传|特典/, this.label);
+        validate(streams, elapsed) {
+            if (streams.length) assertAllInclude(streams, /OVA|OAD|SP|特别篇|番外|外传|特典/, this.label);
+            assert(elapsed < 7000, `${this.label}: expected fast special handling, got ${elapsed}ms`);
             assertNoneInclude(streams, /异兽魔都第二季|第12集完结/, this.label);
         }
     },
@@ -468,6 +483,49 @@ const CASES = [
         validate(streams) {
             assertAllInclude(streams.slice(0, 8), /异兽魔都/, this.label);
             assertNoneInclude(streams.slice(0, 8), /OVA|OAD|SP|特别篇|番外|外传|异兽魔都第二季/, this.label);
+        }
+    },
+    {
+        label: "anime arc season bridge bleach",
+        params: { type: "tv", title: "死神", seriesName: "死神", season: 2, episode: 1, episodeName: "血战" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected arc streams`);
+            assertAllInclude(streams.slice(0, 8), /死神.*千年血战篇|千年血战篇.*死神/, this.label);
+            assertNoneInclude(streams.slice(0, 8), /死神\s*\|\s*(?:全|共)?(?!.*千年血战篇)|死神\s*第0?1集/, this.label);
+        }
+    },
+    {
+        label: "anime global episode maps to source season",
+        params: { type: "tv", title: "租借女友", seriesName: "租借女友", season: 1, episode: 31, episodeName: "和也与女友" },
+        validate(streams) {
+            assert(streams.length > 0, `${this.label}: expected remapped streams`);
+            assertAllInclude(streams.slice(0, 8), /租借女友第三季|租借女友\s*第三季/, this.label);
+            assertAllInclude(streams.slice(0, 8), /第0?7集/, this.label);
+            assertNoneInclude(streams.slice(0, 8), /租借女友第一季|租借女友第二季|租借女友第四季/, this.label);
+        }
+    },
+    {
+        label: "special season variety fast empty",
+        params: { type: "tv", title: "现在就出发", seriesName: "现在就出发", season: 0, episode: 1, episodeName: "第1季 森林体验篇", airDate: "2023-07-30" },
+        validate(streams, elapsed) {
+            assert(streams.length === 0, `${this.label}: expected empty special result`);
+            assert(elapsed < 7000, `${this.label}: expected fast empty, got ${elapsed}ms`);
+        }
+    },
+    {
+        label: "special season anime fast empty without evidence match",
+        params: { type: "tv", title: "海贼王", seriesName: "海贼王", season: 0, episode: 1, episodeName: "紧急企画！海贼王完全攻略法" },
+        validate(streams, elapsed) {
+            assert(streams.length === 0, `${this.label}: expected empty special result`);
+            assert(elapsed < 7000, `${this.label}: expected fast empty, got ${elapsed}ms`);
+        }
+    },
+    {
+        label: "foreign new series fast empty",
+        params: { type: "tv", title: "Futuro desierto", seriesName: "Futuro desierto", season: 1, episode: 1, episodeName: "第 1 集" },
+        validate(streams, elapsed) {
+            assert(streams.length === 0, `${this.label}: expected empty streams`);
+            assert(elapsed < 6000, `${this.label}: expected fast empty, got ${elapsed}ms`);
         }
     }
 ];
@@ -482,8 +540,9 @@ const CASES = [
         const startedAt = Date.now();
         const runner = testCase.context || context;
         const streams = await runner.loadResource(testCase.params);
-        testCase.validate(streams);
-        console.log(`PASS ${testCase.label}: ${streams.length} streams in ${Date.now() - startedAt}ms`);
+        const elapsed = Date.now() - startedAt;
+        testCase.validate(streams, elapsed);
+        console.log(`PASS ${testCase.label}: ${streams.length} streams in ${elapsed}ms`);
         console.log(combinedText(streams.slice(0, 2)));
     }
 })().catch(error => {

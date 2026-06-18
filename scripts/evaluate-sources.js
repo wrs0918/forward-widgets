@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const SOURCES = [
+const DEFAULT_SOURCES = [
     ["dyttzy", "电影天堂资源", "http://caiji.dyttzyapi.com/api.php/provide/vod"],
     ["feifan", "非凡资源", "http://ffzy5.tv/api.php/provide/vod"],
     ["ruyi", "如意资源", "https://cj.rycjapi.com/api.php/provide/vod"],
@@ -13,15 +13,29 @@ const SOURCES = [
     ["zuida", "最大资源", "https://api.zuidapi.com/api.php/provide/vod"],
     ["piaoling", "飘零资源", "https://p2100.net/api.php/provide/vod"],
     ["feifanapi", "非凡API", "https://api.ffzyapi.com/api.php/provide/vod"],
-    ["wujin", "无尽资源", "https://api.wujinapi.me/api.php/provide/vod"],
+    ["wujin", "无尽资源", "https://api.wujinapi.com/api.php/provide/vod"],
     ["zy360", "360资源", "https://360zy.com/api.php/provide/vod"],
     ["mdzy", "魔都资源", "https://www.mdzyapi.com/api.php/provide/vod"],
+    ["huya", "虎牙资源", "https://www.huyaapi.com/api.php/provide/vod"]
+];
+
+// 外部候选源只用于准入评估，不会因为出现在这里就进入 VodMax 默认源池。
+const CANDIDATE_SOURCES = [
     ["heimuer", "黑木耳", "https://json.heimuer.xyz/api.php/provide/vod"],
+    ["huawei", "华为吧", "https://hw8.live/api.php/provide/vod/"],
+    ["tiankong", "天空资源", "https://api.tiankongapi.com/api.php/provide/vod/"],
+    ["feisu", "飞速资源", "https://www.feisuzyapi.com/api.php/provide/vod/"],
+    ["guangsu", "光速资源", "https://api.guangsuapi.com/api.php/provide/vod/"],
+    ["bdzy", "百度云资源", "https://api.apibdzy.com/api.php/provide/vod/"],
+    ["ckzy", "ck资源", "https://ckzy.me/api.php/provide/vod/"],
+    ["kczy", "快播资源", "https://caiji.kczyapi.com/api.php/provide/vod/"],
+    ["uku", "U酷资源", "https://api.ukuapi.com/api.php/provide/vod/"],
     ["tyyszy", "天涯资源", "https://tyyszy.com/api.php/provide/vod"],
     ["maotaizy", "茅台资源", "https://caiji.maotaizy.cc/api.php/provide/vod"],
     ["mozhua", "魔爪资源", "https://mozhuazy.com/api.php/provide/vod"],
     ["xiaomaomi", "小猫咪资源", "https://zy.xmm.hk/api.php/provide/vod"],
     ["wolong", "卧龙资源", "https://wolongzyw.com/api.php/provide/vod"],
+    ["wolong2", "卧龙资源新", "https://collect.wolongzy.cc/api.php/provide/vod/"],
     ["yinghua", "樱花资源", "https://m3u8.apiyhzy.com/api.php/provide/vod"],
     ["suoni", "索尼资源", "https://suoniapi.com/api.php/provide/vod"],
     ["shandian", "闪电资源", "https://sdzyapi.com/api.php/provide/vod"],
@@ -132,8 +146,11 @@ async function evaluateSource(source) {
 }
 
 async function main() {
-    const rows = await Promise.all(SOURCES.map(evaluateSource));
+    const includeCandidates = process.argv.includes("--candidates");
+    const sources = includeCandidates ? DEFAULT_SOURCES.concat(CANDIDATE_SOURCES) : DEFAULT_SOURCES;
+    const rows = await Promise.all(sources.map(evaluateSource));
     rows.sort((a, b) => b.okCases - a.okCases || b.playableHints - a.playableHints || b.hdHints - a.hdHints || a.adRisk - b.adRisk || a.errors - b.errors || a.avgMs - b.avgMs);
+    console.log(`# source-set: ${includeCandidates ? "default+candidates" : "default"}; use --candidates to include external probes`);
     console.log(`name\tok/${SOURCE_EVALUATION_CASES.length}\tplayHint\thdHint\tadRisk\terrors\tavgMs\titems\taux\thits`);
     for (const row of rows) {
         console.log(`${row.name}\t${row.okCases}/${SOURCE_EVALUATION_CASES.length}\t${row.playableHints}\t${row.hdHints}\t${row.adRisk}\t${row.errors}\t${row.avgMs}\t${row.totalItems}\t${row.auxiliary}\t${row.hits.join(" | ")}`);

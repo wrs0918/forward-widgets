@@ -1,26 +1,39 @@
 // 源池只保留默认启用的稳定源，避免慢源或坏源拖住 Forward 详情页。
 const SOURCES = [
-    { id: "dyttzy", name: "电影天堂资源", baseUrl: "http://caiji.dyttzyapi.com/api.php/provide/vod", priority: 112, tier: "primary" },
-    { id: "feifan", name: "非凡资源", baseUrl: "http://ffzy5.tv/api.php/provide/vod", priority: 110, tier: "primary" },
-    { id: "ruyi", name: "如意资源", baseUrl: "https://cj.rycjapi.com/api.php/provide/vod", priority: 108, tier: "primary" },
-    { id: "jisu", name: "极速资源", baseUrl: "https://jszyapi.com/api.php/provide/vod", priority: 106, tier: "primary" },
-    { id: "ikun", name: "iKun资源", baseUrl: "https://ikunzyapi.com/api.php/provide/vod", priority: 104, tier: "primary" },
-    { id: "hongniu", name: "红牛资源", baseUrl: "https://www.hongniuzy2.com/api.php/provide/vod", priority: 102, tier: "primary" },
-    { id: "lezi", name: "乐子资源", baseUrl: "https://cj.lziapi.com/api.php/provide/vod", priority: 100, tier: "primary" },
-    { id: "haihua", name: "海豚资源", baseUrl: "https://hhzyapi.com/api.php/provide/vod", priority: 98, tier: "primary" },
-    { id: "baofeng", name: "暴风资源", baseUrl: "https://bfzyapi.com/api.php/provide/vod", priority: 96, tier: "primary" },
-    { id: "zuida", name: "最大资源", baseUrl: "https://api.zuidapi.com/api.php/provide/vod", priority: 94, tier: "primary" },
-    { id: "piaoling", name: "飘零资源", baseUrl: "https://p2100.net/api.php/provide/vod", priority: 88, tier: "fallback" },
-    { id: "feifanapi", name: "非凡API", baseUrl: "https://api.ffzyapi.com/api.php/provide/vod", priority: 86, tier: "fallback" },
-    { id: "wujin", name: "无尽资源", baseUrl: "https://api.wujinapi.me/api.php/provide/vod", priority: 84, tier: "fallback" },
-    { id: "zy360", name: "360资源", baseUrl: "https://360zy.com/api.php/provide/vod", priority: 78, tier: "fallback" },
-    { id: "mdzy", name: "魔都资源", baseUrl: "https://www.mdzyapi.com/api.php/provide/vod", priority: 72, tier: "fallback" }
+    { id: "dyttzy", name: "电影天堂资源", baseUrl: "http://caiji.dyttzyapi.com/api.php/provide/vod", priority: 116, tier: "fastPreferred" },
+    { id: "ruyi", name: "如意资源", baseUrl: "https://cj.rycjapi.com/api.php/provide/vod", priority: 114, tier: "fastPreferred" },
+    { id: "ikun", name: "iKun资源", baseUrl: "https://ikunzyapi.com/api.php/provide/vod", priority: 112, tier: "fastPreferred" },
+    { id: "wujin", name: "无尽资源", baseUrl: "https://api.wujinapi.com/api.php/provide/vod", priority: 110, tier: "fastPreferred" },
+    { id: "zuida", name: "最大资源", baseUrl: "https://api.zuidapi.com/api.php/provide/vod", priority: 108, tier: "fastPreferred" },
+    { id: "baofeng", name: "暴风资源", baseUrl: "https://bfzyapi.com/api.php/provide/vod", priority: 106, tier: "fastPreferred" },
+    { id: "feifan", name: "非凡资源", baseUrl: "http://ffzy5.tv/api.php/provide/vod", priority: 104, tier: "balancedPrimary" },
+    { id: "lezi", name: "乐子资源", baseUrl: "https://cj.lziapi.com/api.php/provide/vod", priority: 100, tier: "balancedPrimary" },
+    { id: "hongniu", name: "红牛资源", baseUrl: "https://www.hongniuzy2.com/api.php/provide/vod", priority: 98, tier: "balancedPrimary" },
+    { id: "haihua", name: "海豚资源", baseUrl: "https://hhzyapi.com/api.php/provide/vod", priority: 96, tier: "balancedPrimary" },
+    { id: "jisu", name: "极速资源", baseUrl: "https://jszyapi.com/api.php/provide/vod", priority: 94, tier: "balancedPrimary" },
+    { id: "piaoling", name: "飘零资源", baseUrl: "https://p2100.net/api.php/provide/vod", priority: 90, tier: "fallbackProbe" },
+    { id: "feifanapi", name: "非凡API", baseUrl: "https://api.ffzyapi.com/api.php/provide/vod", priority: 88, tier: "fallbackProbe" },
+    { id: "zy360", name: "360资源", baseUrl: "https://360zy.com/api.php/provide/vod", priority: 82, tier: "fallbackProbe" },
+    { id: "mdzy", name: "魔都资源", baseUrl: "https://www.mdzyapi.com/api.php/provide/vod", priority: 80, tier: "fallbackProbe" },
+    { id: "huya", name: "虎牙资源", baseUrl: "https://www.huyaapi.com/api.php/provide/vod", priority: 76, tier: "fallbackProbe" }
 ];
 
 const SOURCE_MAP = Object.fromEntries(SOURCES.map(source => [source.id, source]));
-const FAST_SOURCE_IDS = ["dyttzy", "zuida", "lezi", "ruyi", "ikun", "jisu", "hongniu"].filter(id => SOURCE_MAP[id]);
-const PRIMARY_SOURCE_IDS = SOURCES.filter(source => source.tier === "primary").map(source => source.id);
-const FALLBACK_SOURCE_IDS = SOURCES.filter(source => source.tier === "fallback").map(source => source.id);
+const FAST_SOURCE_IDS = SOURCES.filter(source => source.tier === "fastPreferred").map(source => source.id);
+const BALANCED_SOURCE_IDS = SOURCES.filter(source => source.tier === "balancedPrimary").map(source => source.id);
+const PRIMARY_SOURCE_IDS = [...FAST_SOURCE_IDS, ...BALANCED_SOURCE_IDS];
+const FALLBACK_SOURCE_IDS = SOURCES.filter(source => source.tier === "fallbackProbe").map(source => source.id);
+const SPECIAL_ANIME_SOURCE_IDS = ["baofeng", "lezi", "ruyi", "wujin", "huya", "dyttzy"].filter(id => SOURCE_MAP[id]);
+const VARIETY_SOURCE_IDS = ["dyttzy", "ruyi", "ikun", "feifan", "jisu", "hongniu", "lezi"].filter(id => SOURCE_MAP[id]);
+const MATCH_CACHE = {
+    normalizeTitle: new Map(),
+    looseTitle: new Map(),
+    episodeIdentity: new Map(),
+    varietyTags: new Map(),
+    episodes: new Map()
+};
+const SPECIAL_EPISODE_TAGS = ["OVA", "OAD", "SP", "特别篇", "番外", "外传", "总集篇", "特典", "短篇", "休息时间", "先导片", "加更", "纯享", "会员版", "花絮", "幕后", "特辑", "纪录片"];
+const SPECIAL_EPISODE_EVIDENCE_RE = /(ova|oad|oav|\bsp\b|special|特别篇|番外|番外篇|外传|总集篇|総集編|特典|剧场版|劇場版|先导片?|前传|短篇|休息时间|小剧场|小劇場|迷你动画|迷你劇|加更|纯享|會員|会员|vip|花絮|幕后|特辑|特別|纪录片|紀錄片|篇：|篇:|篇$|ova版)/i;
 const CHINESE_NUMBERS = {
     "零": 0,
     "一": 1,
@@ -41,7 +54,7 @@ WidgetMetadata = {
     title: "VOD资源聚合",
     description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "工位划水冠军",
-    version: "5.4.11",
+    version: "5.4.13",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 900,
@@ -161,7 +174,8 @@ const ORTHOGRAPHIC_TITLE_VARIANTS = [
     ["夢", "梦"],
     ["異獸", "异兽"],
     ["名偵探", "名侦探"],
-    ["海賊", "海贼"]
+    ["海賊", "海贼"],
+    ["航海", "海贼"]
 ];
 
 // 只处理通用繁简和异体字，不在这里写具体作品别名。
@@ -175,8 +189,13 @@ function normalizeCjkVariants(value) {
 
 // 生成宽松标题文本，用于处理繁简、异体字和工房/工坊这类通用写法差异。
 function looseTitleText(value) {
-    return normalizeCjkVariants(normalizeCompactText(value))
-        .replace(/工房/g, "工坊");
+    const key = safeText(value);
+    if (MATCH_CACHE.looseTitle.has(key)) return MATCH_CACHE.looseTitle.get(key);
+    const result = normalizeCjkVariants(normalizeCompactText(value))
+        .replace(/工房/g, "工坊")
+        .replace(/航海/g, "海贼");
+    MATCH_CACHE.looseTitle.set(key, result);
+    return result;
 }
 
 // 判断候选标题是否只是被前缀嵌入，避免长篇动漫被衍生作品污染。
@@ -185,6 +204,11 @@ function hasSeparatedEmbeddedTitle(text, target) {
     const index = text.indexOf(target);
     if (index <= 0) return false;
     return /[：:之\-_]$/.test(text.slice(0, index));
+}
+
+// 标记本次请求的内部路径，供本地脚本观测，不改变 Forward 对外返回。
+function markDebugTrace(payload, key) {
+    if (payload && payload.debugTrace) payload.debugTrace[key] = true;
 }
 
 // 根据 Forward 参数判断是否可能是高集数 TV，从而触发长篇动漫逻辑。
@@ -299,7 +323,11 @@ function cleanSearchKeyword(title, options) {
 
 // 标题归一化入口，供相似度、去重和污染判断使用。
 function normalizeTitle(title) {
-    return normalizeCompactText(cleanSearchKeyword(title));
+    const key = safeText(title);
+    if (MATCH_CACHE.normalizeTitle.has(key)) return MATCH_CACHE.normalizeTitle.get(key);
+    const result = normalizeCompactText(cleanSearchKeyword(title));
+    MATCH_CACHE.normalizeTitle.set(key, result);
+    return result;
 }
 
 // 判断标题是否明显是预告、解说、花絮等非正片内容。
@@ -326,7 +354,68 @@ function isSpecialSeasonPayload(payload) {
 
 // 判断文本是否有 OVA、SP、特别篇、剧场版等特别篇证据。
 function hasAnimeSpecialEvidence(text) {
-    return /(ova|oad|oav|sp|special|特别篇|番外|番外篇|外传|总集篇|総集編|特典|剧场版|劇場版|先导|前传|篇：|篇:|篇$|ova版)/i.test(safeText(text));
+    return SPECIAL_EPISODE_EVIDENCE_RE.test(safeText(text));
+}
+
+// 提取特别集标题词，第 0 季用它和日期/类型共同守边界。
+function extractSpecialTitleTokens(text) {
+    const value = safeText(text)
+        .replace(SPECIAL_EPISODE_EVIDENCE_RE, " ")
+        .replace(/20\d{6}/g, " ")
+        .replace(/(?:20\d{2})[-/.年\s]*\d{1,2}[-/.月\s]*\d{1,2}日?/g, " ")
+        .replace(/第\s*[一二两三四五六七八九十\d]{1,3}\s*(?:集|话|話|回|期)/g, " ")
+        .replace(/[上下中](?:集|期|篇)?/g, " ")
+        .replace(/[^\u4e00-\u9fa5A-Za-z0-9]+/g, " ");
+    return uniq(value.split(/\s+/).map(part => part.trim()).filter(part => part.length >= 2 && part.length <= 14));
+}
+
+// 给所有第 0 季请求派生特别集身份，动漫、综艺和普通剧共用同一条硬边界。
+function buildSpecialEpisodeIdentity(payload) {
+    const text = [payload.episodeName, payload.title, payload.seriesName, payload.releaseDate].map(safeText).join(" ");
+    const varietyIdentity = buildEpisodeIdentity(text, payload || {});
+    const evidence = hasAnimeSpecialEvidence(text) || varietyIdentity.kind !== "normal" || varietyIdentity.part || varietyIdentity.dateCodes.length || (payload.episodeName && extractSpecialTitleTokens(payload.episodeName).length);
+    const tagMatch = text.match(SPECIAL_EPISODE_EVIDENCE_RE);
+    return {
+        active: Boolean(payload.specialSeason || evidence),
+        requestedSeasonZero: Boolean(payload.specialSeason),
+        hasEvidence: Boolean(evidence),
+        kind: varietyIdentity.kind,
+        part: varietyIdentity.part,
+        issueNumber: varietyIdentity.issueNumber,
+        dateCodes: varietyIdentity.dateCodes || [],
+        titleTokens: uniq([...(varietyIdentity.titleTokens || []), ...extractSpecialTitleTokens(payload.episodeName)]),
+        tag: safeText(tagMatch && tagMatch[0]).toLowerCase(),
+        episodeNumber: Number(payload.episode) || 0
+    };
+}
+
+// 判断文本是否符合第 0 季/特别集请求的证据边界。
+function specialIdentityEvidenceScore(text, payload) {
+    const identity = payload && payload.specialEpisodeIdentity;
+    if (!identity || !identity.active) return 0;
+    const value = safeText(text);
+    const labelIdentity = buildEpisodeIdentity(value, payload || {});
+    let score = 0;
+    if (hasAnimeSpecialEvidence(value)) score += 170;
+    if (identity.dateCodes.length) {
+        const matchedDate = identity.dateCodes.some(code => labelIdentity.dateCodes.includes(code));
+        if (matchedDate) score += 190;
+        else if (labelIdentity.dateCodes.length && !hasNearRequestedDate(identity.dateCodes, labelIdentity.dateCodes, 1)) score -= 180;
+    }
+    if (identity.kind !== "normal") score += labelIdentity.kind === identity.kind ? 120 : -160;
+    if (identity.part) score += labelIdentity.part === identity.part ? 80 : -110;
+    if (identity.issueNumber && labelIdentity.issueNumber) score += identity.issueNumber === labelIdentity.issueNumber ? 85 : -140;
+    score += titleTokenOverlapScore(identity.titleTokens, uniq([...(labelIdentity.titleTokens || []), ...extractSpecialTitleTokens(value)]));
+    return score;
+}
+
+// 第 0 季不能退回普通季，必须有特别篇证据、日期/期身份或单集标题强命中。
+function specialIdentityMatchesText(text, payload) {
+    const identity = payload && payload.specialEpisodeIdentity;
+    if (!identity || !identity.active) return true;
+    if (hasAnimeSpecialEvidence(text)) return true;
+    if (identity.requestedSeasonZero && !identity.hasEvidence) return false;
+    return specialIdentityEvidenceScore(text, payload) >= 90;
 }
 
 // 从备注或播放信息里提取总集数，用于识别长篇动漫。
@@ -358,6 +447,71 @@ function isLongAnimeItem(item, episodes) {
     const text = [item && item.vod_name, item && item.vod_remarks, item && item.vod_class, item && item.type_name].map(safeText).join(" ");
     const total = Math.max(extractTotalEpisodes(text), Array.isArray(episodes) ? episodes.length : 0);
     return isAnimePayload({}, item) && total >= 80;
+}
+
+// 提取动漫资源站常见的篇章、Part、季数提示，用于桥接 TMDB 季数和源站分季差异。
+function extractAnimeArcSignals(text) {
+    const value = safeText(text);
+    const signals = [];
+    if (/[篇章]/.test(value)) signals.push("arc");
+    if (/\bpart\s*\d+/i.test(value)) signals.push("part");
+    if (/千年|血战|篇|章|編|篇章/.test(value)) signals.push("namedArc");
+    if (extractSeasonNumber(value)) signals.push("season");
+    if (/(上篇|下篇|前篇|后篇|後篇|第[一二两三四五六七八九十\d]+部)/.test(value)) signals.push("part");
+    return uniq(signals);
+}
+
+// 判断候选是否像同一部动漫的篇章分季，而不是普通剧跨季。
+function animeSeasonBridgeScore(item, payload) {
+    if (!payload || payload.specialSeason || payload.longAnime) return 0;
+    if (!isAnimePayload(payload, item)) return 0;
+    const itemTitle = safeText(item && item.vod_name);
+    const itemText = [item && item.vod_name, item && item.vod_remarks, item && item.vod_class, item && item.type_name].map(safeText).join(" ");
+    if (/(特别编辑版|剧场版|劇場版|真人版|真人|live\s*action|总集篇|総集編|预告|解说)/i.test(itemText)) return 0;
+    const itemBase = normalizeTitle(removeSeasonText(itemTitle));
+    const payloadBase = normalizeTitle(removeSeasonText(payload.seriesName || payload.title));
+    const aliasBases = (payload.aliases || []).map(alias => normalizeTitle(removeSeasonText(alias))).filter(Boolean);
+    const titleRelated = itemBase && (itemBase === payloadBase || itemBase.includes(payloadBase) || payloadBase.includes(itemBase) || aliasBases.some(alias => itemBase === alias || itemBase.includes(alias) || alias.includes(itemBase)));
+    if (!titleRelated) return 0;
+    const signals = extractAnimeArcSignals(itemText);
+    if (!signals.length) return 0;
+    const itemSeason = extractSeasonNumber(itemText);
+    const requestedEpisode = Number(payload.episode) || 0;
+    if (itemSeason && payload.seasonNumber && itemSeason > payload.seasonNumber && requestedEpisode <= 24) return 0;
+    let score = 130 + signals.length * 25;
+    if (itemSeason && payload.seasonNumber && itemSeason !== payload.seasonNumber) score += 70;
+    if (itemTitle && normalizeTitle(itemTitle) !== normalizeTitle(payload.title)) score += 20;
+    return score;
+}
+
+// 动漫源按季拆分时，尝试把 TMDB 全局/连续集数换算成当前播放列表里的本季集数。
+function animeLocalEpisodeNumbers(payload, item, totalEpisodes) {
+    const ep = Number(payload && payload.episode) || 0;
+    if (!ep || !payload || payload.specialSeason) return [];
+    if (!((payload.animeIdentity && payload.animeIdentity.isLikelyAnime) || isAnimePayload(payload, item))) return [];
+    const numbers = [ep];
+    const total = Number(totalEpisodes) || 0;
+    if (total > 1 && ep > total) {
+        const expectedSeason = expectedAnimeSourceSeason(payload, total);
+        const itemSeason = extractSeasonNumber([item && item.vod_name, item && item.vod_remarks].join(" "));
+        if (expectedSeason && itemSeason && itemSeason !== expectedSeason) return numbers;
+        if (expectedSeason && !itemSeason && !extractAnimeArcSignals([item && item.vod_name, item && item.vod_remarks].join(" ")).includes("part")) return numbers;
+        const remainder = ep % total;
+        numbers.push(remainder || total);
+        if (itemSeason > 1) {
+            const offsetEpisode = ep - ((itemSeason - 1) * total);
+            if (offsetEpisode > 0 && offsetEpisode <= total) numbers.push(offsetEpisode);
+        }
+    }
+    return uniq(numbers.map(String)).map(Number).filter(Boolean);
+}
+
+// 按播放列表长度估算 TMDB 连续集数落到源站第几季。
+function expectedAnimeSourceSeason(payload, totalEpisodes) {
+    const ep = Number(payload && payload.episode) || 0;
+    const total = Number(totalEpisodes) || 0;
+    if (!ep || !total || ep <= total) return 0;
+    return Math.ceil(ep / total);
 }
 
 // 生成通用写法变体，只处理繁简/异体字等非具体作品规则。
@@ -494,6 +648,8 @@ function durationScore(requestedMinutes, item) {
 
 // 提取国内综艺常见身份标签，如加更、纯享、超前、上中下等。
 function extractVarietyTags(text) {
+    const cacheKey = safeText(text);
+    if (MATCH_CACHE.varietyTags.has(cacheKey)) return MATCH_CACHE.varietyTags.get(cacheKey);
     const value = safeText(text);
     const tags = [];
     const patterns = [
@@ -512,7 +668,9 @@ function extractVarietyTags(text) {
     for (const [tag, pattern] of patterns) {
         if (pattern.test(value)) tags.push(tag);
     }
-    return uniq(tags);
+    const result = uniq(tags);
+    MATCH_CACHE.varietyTags.set(cacheKey, result);
+    return result;
 }
 
 // 根据请求标签和候选标签的一致性给综艺候选打分。
@@ -669,7 +827,12 @@ function extractIdentityTokens(text) {
 // 把日期、期号、上下篇、类型、标题词合成统一综艺期身份。
 function buildEpisodeIdentity(text, payload) {
     const value = safeText(text);
-    return {
+    const payloadKey = payload ? [payload.year, payload.releaseDate].map(safeText).join("|") : "";
+    const cacheKey = `${payloadKey}::${value}`;
+    if (MATCH_CACHE.episodeIdentity.has(cacheKey)) {
+        return Object.assign({}, MATCH_CACHE.episodeIdentity.get(cacheKey));
+    }
+    const identity = {
         dateCodes: parseAllDateCodes(value, payload || {}),
         issueNumber: extractIssueNumber(value),
         part: extractVarietyPart(value),
@@ -681,6 +844,8 @@ function buildEpisodeIdentity(text, payload) {
         usedEpisodeFallback: false,
         fromEpisodeName: false
     };
+    MATCH_CACHE.episodeIdentity.set(cacheKey, identity);
+    return Object.assign({}, identity);
 }
 
 // 判断是否应使用国内综艺专用期身份匹配。
@@ -870,6 +1035,17 @@ async function requestJsonUrl(url, params, timeout) {
     return parseJson(response.data);
 }
 
+// 可选 POST JSON 请求，Forward 环境不支持 post 时直接跳过对应动态别名源。
+async function postJsonUrl(url, body, timeout) {
+    if (!Widget.http || typeof Widget.http.post !== "function") return {};
+    const response = await Widget.http.post(url, {
+        data: body || {},
+        headers: Object.assign({}, buildHeaders(), { "Content-Type": "application/json" }),
+        timeout: timeout || 1800
+    });
+    return parseJson(response.data);
+}
+
 // 清洗外部别名里的噪声词。
 function normalizeAlias(alias) {
     return removeNoiseText(alias)
@@ -910,7 +1086,7 @@ function cleanAliasList(values, payload, options) {
         const bKana = /[\u3040-\u30ff]/.test(b) ? 1 : 0;
         return (bCjk - aCjk) || (bKana - aKana) || (a.length - b.length);
     });
-    return aliases.slice(0, 10);
+    return aliases.slice(0, 16);
 }
 
 // 推入一组相关别名，要求组内至少有一个别名与当前媒体相关。
@@ -985,7 +1161,8 @@ async function fetchTvmazeAliases(payload) {
 async function fetchJikanAliases(payload) {
     if (payload.mediaType && payload.mediaType !== "tv") return [];
     if (!shouldFetchAnimeAliasSources(payload)) return [];
-    const terms = uniq([payload.title, payload.seriesName, payload.rawParams && payload.rawParams.originalTitle, payload.rawParams && payload.rawParams.originalName].filter(Boolean));
+    const rawOriginalTerms = [payload.rawParams && payload.rawParams.originalTitle, payload.rawParams && payload.rawParams.originalName].filter(Boolean);
+    const terms = uniq([...rawOriginalTerms, payload.title, payload.seriesName].filter(Boolean));
     const aliases = [];
     for (const term of terms.slice(0, 2)) {
         try {
@@ -1011,9 +1188,25 @@ async function fetchJikanAliases(payload) {
 async function fetchBangumiAliases(payload) {
     if (payload.mediaType && payload.mediaType !== "tv") return [];
     if (!shouldFetchAnimeAliasSources(payload)) return [];
-    const terms = uniq([payload.title, payload.seriesName, payload.rawParams && payload.rawParams.originalTitle, payload.rawParams && payload.rawParams.originalName].filter(Boolean));
+    const rawOriginalTerms = [payload.rawParams && payload.rawParams.originalTitle, payload.rawParams && payload.rawParams.originalName].filter(Boolean);
+    const terms = uniq([...rawOriginalTerms, payload.title, payload.seriesName].filter(Boolean));
     const aliases = [];
-    for (const term of terms.slice(0, 2)) {
+    for (const term of terms.slice(0, 3)) {
+        try {
+            const v0Data = await postJsonUrl("https://api.bgm.tv/v0/search/subjects?limit=5", {
+                keyword: term,
+                filter: { type: [2] }
+            }, 1800);
+            const v0Rows = Array.isArray(v0Data.data) ? v0Data.data : [];
+            for (const row of v0Rows.slice(0, 5)) {
+                pushAliasGroupFromSearchHit(aliases, [
+                    row.name_cn,
+                    row.name
+                ], payload, term);
+            }
+        } catch (error) {
+            // 继续尝试旧接口。
+        }
         try {
             const data = await requestJsonUrl(`https://api.bgm.tv/search/subject/${encodeURIComponent(term)}`, {
                 type: 2,
@@ -1141,6 +1334,61 @@ function extractTmdbEpisodeAirDate(data) {
     return safeText(data && (data.air_date || data.airDate || data.release_date || data.first_air_date));
 }
 
+// 统一派生请求身份，让搜索、早停和最终过滤共享同一组类型判断。
+function buildRequestIdentity(payload) {
+    const text = [payload.title, payload.seriesName, payload.episodeName, payload.releaseDate, ...(payload.aliases || [])].map(safeText).join(" ");
+    let mediaKind = "generic";
+    if (isMoviePayload(payload)) mediaKind = "movie";
+    else if (payload.domesticVariety || payload.isVariety) mediaKind = "variety";
+    else if (payload.isAnime || /[\u3040-\u30ff]/.test(text) || isAnimeText(text)) mediaKind = "anime";
+    else if (payload.mediaType === "tv") mediaKind = "series";
+
+    let episodeKind = "none";
+    if (payload.animeSpecialSeason) episodeKind = "animeSpecial";
+    else if (payload.longAnime) episodeKind = "globalEpisode";
+    else if (payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity)) episodeKind = "varietyIdentity";
+    else if (Number(payload.episode) > 0) episodeKind = "numberedEpisode";
+
+    return {
+        mediaKind: mediaKind,
+        episodeKind: episodeKind,
+        seasonNumber: payload.seasonNumber,
+        episodeNumber: Number(payload.episode) || 0,
+        hasReliableVarietyIdentity: Boolean(payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity)),
+        hasDateIdentity: Boolean(payload.dateCodes && payload.dateCodes.length),
+        titleAliases: uniq([payload.title, payload.seriesName, ...(payload.aliases || [])].filter(Boolean))
+    };
+}
+
+// 动漫请求单独派生身份，避免英文/日文标题在首轮被当成普通剧集慢慢补救。
+function buildAnimeIdentity(payload) {
+    const text = [payload.title, payload.seriesName, payload.episodeName, payload.rawParams && payload.rawParams.originalTitle, payload.rawParams && payload.rawParams.originalName, ...(payload.aliases || [])].map(safeText).join(" ");
+    const likelyAnime = Boolean(
+        payload.isAnime
+        || payload.longAnime
+        || payload.animeSpecialSeason
+        || /[\u3040-\u30ff]/.test(text)
+        || isAnimeText(text)
+        || (payload.mediaType === "tv" && /[A-Za-z]{3,}/.test(text) && safeText(payload.rawParams && (payload.rawParams.originalTitle || payload.rawParams.originalName)))
+    );
+    let episodeMode = "season";
+    if (payload.animeSpecialSeason) episodeMode = "special";
+    else if (payload.longAnime || isHighEpisodeTvPayload(payload)) episodeMode = "global";
+    const specialText = [payload.title, payload.seriesName, payload.episodeName].join(" ");
+    const specialKind = payload.animeSpecialSeason || hasAnimeSpecialEvidence(specialText)
+        ? ((specialText.match(/ova|oad|sp|特别篇|番外|外传|剧场版|劇場版/i) || [])[0] || "special")
+        : "";
+    return {
+        isLikelyAnime: likelyAnime,
+        episodeMode: episodeMode,
+        specialKind: safeText(specialKind).toLowerCase(),
+        titleAliases: uniq([payload.title, payload.seriesName, ...(payload.aliases || [])].filter(Boolean)),
+        seasonNumber: payload.seasonNumber,
+        episodeNumber: Number(payload.episode) || 0,
+        isMainlineRequested: !payload.animeSpecialSeason && !hasAnimeSpecialEvidence(specialText)
+    };
+}
+
 // 如果 Forward 参数缺少单集标题或日期，则尝试用 TMDB 补全。
 async function enrichParamsFromTmdbEpisode(params, payload) {
     if (!hasTmdbEpisodeLookupPayload(payload)) return params || {};
@@ -1207,6 +1455,7 @@ function buildStreamPayload(params) {
         durationMinutes: parseDurationMinutes(params.duration || params.runtime || params.episodeRuntime || params.episodeDuration),
         aliases: seededAliases,
         link: safeText(params.link),
+        debugTrace: {},
         rawParams: params || {}
     };
     payload.episodeIdentity = buildRequestedEpisodeIdentity(payload);
@@ -1215,7 +1464,12 @@ function buildStreamPayload(params) {
     payload.isAnime = isAnimePayload(payload, null);
     payload.longAnime = isLongAnimePayload(payload);
     payload.specialSeason = isSpecialSeasonPayload(payload);
+    payload.specialEpisodeIdentity = buildSpecialEpisodeIdentity(payload);
     payload.animeSpecialSeason = payload.specialSeason && !payload.domesticVariety && !payload.isVariety;
+    payload.animeIdentity = buildAnimeIdentity(payload);
+    if (payload.animeIdentity.isLikelyAnime) payload.isAnime = true;
+    if (payload.animeIdentity.episodeMode === "global") payload.longAnime = true;
+    payload.requestIdentity = buildRequestIdentity(payload);
     return payload;
 }
 
@@ -1240,9 +1494,37 @@ function buildSearchKeywords(payload) {
         const cleanWithoutSeason = cleanSearchKeyword(title);
         keywords.push(cleanWithSeason);
         keywords.push(cleanWithSeason.replace(/\s+(\d{1,2})$/g, "$1"));
-        if (payload.animeSpecialSeason && cleanWithoutSeason) {
-            // 第 0 季/特别篇先搜 OVA/SP 等关键词，避免回落到普通第一季。
-            for (const suffix of ["OVA", "OAD", "SP", "特别篇", "番外", "外传", "总集篇", "特典"]) {
+        if (payload.specialSeason && cleanWithoutSeason) {
+            // 第 0 季/特别篇先搜窄关键词，避免回落到普通第一季。
+            const identity = payload.specialEpisodeIdentity || {};
+            specialKeywords.push(cleanWithoutSeason);
+            const kindKeywords = {
+                plus: ["加更", "特别加更"],
+                early: ["超前", "超前营业"],
+                member: ["会员版", "会员"],
+                pure: ["纯享", "纯享版"],
+                behind: ["花絮", "幕后", "彩蛋"],
+                trailer: ["预告"],
+                special: ["特别篇", "特辑", "先导片", "番外"]
+            }[identity.kind] || [];
+            for (const tag of uniq([identity.tag, ...kindKeywords].filter(Boolean))) {
+                specialKeywords.push(`${cleanWithoutSeason}${tag}`);
+                specialKeywords.push(`${cleanWithoutSeason} ${tag}`);
+            }
+            for (const dateCode of identity.dateCodes || []) {
+                specialKeywords.push(`${cleanWithoutSeason}${dateCode}`);
+                specialKeywords.push(`${cleanWithoutSeason} ${dateCode}`);
+            }
+            if (payload.episodeName && !/^第\s*\d+\s*(集|话|話|回)$/.test(payload.episodeName)) {
+                specialKeywords.push(`${cleanWithoutSeason}${payload.episodeName}`);
+                specialKeywords.push(`${cleanWithoutSeason} ${payload.episodeName}`);
+            }
+            for (const token of identity.titleTokens || []) {
+                if (normalizeTitle(token) === normalizeTitle(cleanWithoutSeason)) continue;
+                specialKeywords.push(`${cleanWithoutSeason}${token}`);
+                specialKeywords.push(`${cleanWithoutSeason} ${token}`);
+            }
+            for (const suffix of SPECIAL_EPISODE_TAGS) {
                 specialKeywords.push(`${cleanWithoutSeason}${suffix}`);
                 specialKeywords.push(`${cleanWithoutSeason} ${suffix}`);
             }
@@ -1259,8 +1541,9 @@ function buildSearchKeywords(payload) {
         keywords.push(payload.title.split("：")[0]);
     }
 
-    const orderedKeywords = payload.animeSpecialSeason ? [...specialKeywords, ...keywords] : keywords;
-    return uniq(orderedKeywords).slice(0, payload.animeSpecialSeason ? 18 : payload.longAnime ? 10 : 6);
+    const orderedKeywords = payload.specialSeason ? [...specialKeywords, ...keywords] : keywords;
+    const limit = payload.specialSeason ? 14 : payload.longAnime ? 6 : payload.animeIdentity && payload.animeIdentity.isLikelyAnime ? 10 : payload.requestIdentity && payload.requestIdentity.mediaKind === "variety" ? 5 : 6;
+    return uniq(orderedKeywords).slice(0, limit);
 }
 
 // 计算候选 VOD 标题与请求关键词/别名的相似度。
@@ -1351,6 +1634,65 @@ function isMovieTitleMatch(item, payload) {
     return false;
 }
 
+// 长篇动漫常见不同译名/副标题顺序，只要共享足够长的中文核心词即可进入播放集过滤。
+function hasMeaningfulCjkOverlap(left, right) {
+    const a = looseTitleText(left).replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, "");
+    const b = looseTitleText(right).replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, "");
+    const shorter = a.length <= b.length ? a : b;
+    const longer = a.length <= b.length ? b : a;
+    for (let length = Math.min(shorter.length, 8); length >= 3; length -= 1) {
+        for (let index = 0; index + length <= shorter.length; index += 1) {
+            const part = shorter.slice(index, index + length);
+            if (/[\u4e00-\u9fa5]{3}/.test(part) && longer.includes(part)) return true;
+        }
+    }
+    return false;
+}
+
+// 搜索结果和详情结果可能因源站 id 漂移不一致，详情标题必须重新确认相关性。
+function detailTitleMatchesPayload(item, payload) {
+    if (!item || !payload) return false;
+    if (isMoviePayload(payload)) return isMovieTitleMatch(item, payload);
+    if (isTitlePolluted(item, payload)) return false;
+    const itemTitle = safeText(item.vod_name);
+    const targetTitles = uniq([payload.title, payload.seriesName, ...(payload.aliases || [])].filter(Boolean));
+    if (payload.mediaType === "tv") {
+        const groups = splitMultiValue(item.vod_play_url, "$$$");
+        const maxEpisodes = groups.reduce((max, group) => Math.max(max, parseEpisodes(group).length), 0);
+        const itemText = [item.vod_name, item.vod_remarks, item.vod_class, item.type_name].join(" ");
+        const looksLikeSideMovie = /电影|剧场版|劇場版|the\s*movie|movie|HD中字|HD国语|正片/i.test(itemText);
+        const sideTitle = targetTitles.some(target => {
+            const normalizedTarget = normalizeTitle(target);
+            const normalizedItem = normalizeTitle(itemTitle);
+            if (!normalizedTarget || !normalizedItem.startsWith(normalizedTarget) || normalizedItem === normalizedTarget) return false;
+            const suffix = normalizedItem.slice(normalizedTarget.length);
+            if (/^第[一二两三四五六七八九十\d]+季$/.test(suffix) || /^\d+$/.test(suffix)) return false;
+            return /^(之|大电影|电影|剧场版|劇場版|themovie|movie)/i.test(suffix) || looksLikeSideMovie && maxEpisodes <= 3;
+        });
+        if (sideTitle) return false;
+    }
+    if (payload.longAnime || isHighEpisodeTvPayload(payload)) {
+        const groups = splitMultiValue(item.vod_play_url, "$$$");
+        const maxEpisodes = groups.reduce((max, group) => Math.max(max, parseEpisodes(group).length), 0);
+        const totalEpisodes = Math.max(maxEpisodes, extractTotalEpisodes([item.vod_name, item.vod_remarks, item.vod_class, item.type_name].join(" ")));
+        if (totalEpisodes >= 80 && targetTitles.some(target => hasMeaningfulCjkOverlap(itemTitle, target))) return true;
+        if (totalEpisodes < Math.max(80, Number(payload.episode) || 0)) return false;
+    }
+    if (animeSeasonBridgeScore(item, payload)) return true;
+    return targetTitles.some(target => {
+        const normalizedItem = normalizeTitle(itemTitle);
+        const normalizedTarget = normalizeTitle(target);
+        const looseItem = looseTitleText(itemTitle);
+        const looseTarget = looseTitleText(target);
+        return normalizedItem === normalizedTarget
+            || normalizedItem.includes(normalizedTarget)
+            || normalizedTarget.includes(normalizedItem)
+            || looseItem === looseTarget
+            || looseItem.includes(looseTarget)
+            || looseTarget.includes(looseItem);
+    });
+}
+
 // 给候选条目的季数匹配程度打分。
 function seasonMatchScore(item, payload) {
     if (!payload.seasonNumber) return 0;
@@ -1358,6 +1700,8 @@ function seasonMatchScore(item, payload) {
     const itemSeason = extractSeasonNumber(text);
     const cleanItem = normalizeTitle(removeSeasonText(item.vod_name));
     const cleanSeries = normalizeTitle(removeSeasonText(payload.seriesName || payload.title));
+    const bridgeScore = animeSeasonBridgeScore(item, payload);
+    if (bridgeScore && itemSeason && itemSeason !== payload.seasonNumber) return bridgeScore;
     if (payload.longAnime && isAnimePayload(payload, item)) {
         if (itemSeason && itemSeason !== payload.seasonNumber) return -80;
         const total = extractTotalEpisodes(text);
@@ -1415,6 +1759,16 @@ function scoreSearchMatch(item, payload, source, keyword) {
     score += titleSimilarityScore(item.vod_name, keyword, payload);
     score += strictTitlePenalty(item, payload);
     score += seasonMatchScore(item, payload);
+    const bridgeScore = animeSeasonBridgeScore(item, payload);
+    if (bridgeScore) {
+        score += bridgeScore;
+        markDebugTrace(payload, "seasonBridge");
+    }
+    if (payload.specialSeason) {
+        const specialScore = specialIdentityEvidenceScore([item.vod_name, item.vod_remarks, item.vod_class, item.type_name].join(" "), payload);
+        score += specialScore || -70;
+        markDebugTrace(payload, "specialIdentity");
+    }
     score += mediaTypeScore(item, payload);
     score += qualityScore([item.vod_name, item.vod_remarks, item.vod_class, item.type_name].join(" "));
 
@@ -1427,25 +1781,38 @@ function scoreSearchMatch(item, payload, source, keyword) {
 async function searchSource(source, payload, keywords, timeout, options) {
     const results = [];
     const searchOptions = options || {};
-    const keywordLimit = searchOptions.keywordLimit || (payload.animeSpecialSeason ? 14 : payload.longAnime ? 8 : timeout <= 2600 ? 3 : 5);
-    for (const keyword of keywords.slice(0, keywordLimit)) {
+    const keywordLimit = searchOptions.keywordLimit || (payload.specialSeason ? 4 : payload.longAnime ? 5 : timeout <= 2600 ? 3 : 5);
+    const keywordBatch = keywords.slice(0, keywordLimit);
+    const keywordConcurrency = searchOptions.keywordConcurrency || (timeout <= 2600 ? 2 : 3);
+    let cursor = 0;
+    async function searchKeyword(keyword) {
         try {
             const data = await requestCms(source, { ac: "detail", wd: keyword }, timeout);
             const list = Array.isArray(data.list) ? data.list : [];
+            const keywordResults = [];
             for (const item of list) {
                 const score = scoreSearchMatch(item, payload, source, keyword);
                 if (score < source.priority + 45) continue;
-                results.push({
+                keywordResults.push({
                     sourceId: source.id,
                     vodId: String(item.vod_id),
                     score: score,
                     title: safeText(item.vod_name)
                 });
             }
+            results.push(...keywordResults);
         } catch (error) {
-            continue;
+            return;
         }
     }
+    const workers = Array.from({ length: Math.min(keywordConcurrency, keywordBatch.length) }, async () => {
+        while (cursor < keywordBatch.length) {
+            const keyword = keywordBatch[cursor];
+            cursor += 1;
+            await searchKeyword(keyword);
+        }
+    });
+    await Promise.allSettled(workers);
     return results;
 }
 
@@ -1473,46 +1840,110 @@ async function searchSourcesByIds(sourceIds, payload, keywords, timeout, options
     return settled.flatMap(item => item.status === "fulfilled" ? item.value : []);
 }
 
+// 根据请求类型选择首批源，综艺和第 0 季优先查更容易命中的源，避免无效慢查。
+function firstStageSourceIds(payload) {
+    if (payload.specialSeason && payload.animeSpecialSeason) return SPECIAL_ANIME_SOURCE_IDS;
+    if (payload.specialSeason && (payload.domesticVariety || payload.isVariety)) return uniq([...VARIETY_SOURCE_IDS, ...FAST_SOURCE_IDS]);
+    if (payload.domesticVariety || payload.isVariety) return uniq([...VARIETY_SOURCE_IDS, ...FAST_SOURCE_IDS]);
+    return FAST_SOURCE_IDS;
+}
+
+// 候选数量和分数足够时直接停止搜索，避免进入外部别名或 fallback 慢路径。
+function hasEnoughCandidates(results, payload, minCount) {
+    const candidates = dedupeCandidates(results, minCount || 8);
+    if (candidates.length >= (minCount || 8)) return true;
+    const strongSources = new Set(candidates.filter(candidate => candidate.score >= (SOURCE_MAP[candidate.sourceId].priority || 0) + 150).map(candidate => candidate.sourceId));
+    if ((payload.domesticVariety || payload.isVariety) && payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity)) return strongSources.size >= 1;
+    if (payload.longAnime || payload.specialSeason) return strongSources.size >= 2 || candidates.length >= 4;
+    if (payload.requestIdentity && payload.requestIdentity.mediaKind === "series" && Number(payload.episode) > 0) return strongSources.size >= 2 || candidates.length >= 5;
+    return false;
+}
+
+// 首轮完全无候选且没有强别名价值时，快速返回空，避免暂无资源页面长时间转圈。
+function shouldFastFailAfterFirstStage(payload, results) {
+    if (results && results.length) return false;
+    if (payload.specialSeason) {
+        const identity = payload.specialEpisodeIdentity || {};
+        return !identity.hasEvidence && !identity.dateCodes.length && !identity.titleTokens.length;
+    }
+    if (payload.longAnime || (payload.animeIdentity && payload.animeIdentity.isLikelyAnime)) return false;
+    if (payload.domesticVariety || payload.isVariety) return Boolean(payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity));
+    const text = [payload.title, payload.seriesName, payload.rawParams && payload.rawParams.originalTitle, payload.rawParams && payload.rawParams.originalName].map(safeText).join(" ");
+    const foreignNewSeries = payload.mediaType === "tv" && /[A-Za-z]{4,}/.test(text) && !/[\u4e00-\u9fa5]/.test(text) && Number(payload.seasonNumber) <= 1;
+    return foreignNewSeries;
+}
+
 // 分阶段搜索：先快源精准命中，不足时再查外部别名和 fallback 源。
 async function searchCandidates(payload, options) {
     const searchOptions = options || {};
     const forceExternalAliases = Boolean(searchOptions.forceExternalAliases);
     const keywords = buildSearchKeywords(payload);
-    const fastIds = FAST_SOURCE_IDS.filter(id => PRIMARY_SOURCE_IDS.includes(id));
+    const fastIds = firstStageSourceIds(payload).filter(id => PRIMARY_SOURCE_IDS.includes(id) || FALLBACK_SOURCE_IDS.includes(id));
     const fullIds = PRIMARY_SOURCE_IDS.filter(id => !fastIds.includes(id));
     // 第一阶段只查快源和少量精准关键词，用来尽快给 Forward 返回可用资源。
     let results = await searchSourcesByIds(fastIds, payload, keywords.slice(0, 3), 2600);
     let searchPayload = payload;
+    let fastFailed = false;
 
-    if (!searchOptions.fastOnly && fullIds.length && results.length < 8) {
-        // 第二阶段补齐普通主源，但仍不进入低质量 fallback。
-        results = results.concat(await searchSourcesByIds(fullIds, payload, keywords, 3600));
+    if (searchOptions.allowFastFail && shouldFastFailAfterFirstStage(payload, results)) {
+        markDebugTrace(payload, "fallbackSkipped");
+        fastFailed = true;
+        return {
+            candidates: [],
+            payload: searchPayload,
+            fastFailed: fastFailed
+        };
     }
 
-    if (!searchOptions.fastOnly && (forceExternalAliases || results.length < 4 || payload.longAnime || payload.animeSpecialSeason)) {
+    if (!searchOptions.fastOnly && fullIds.length && !hasEnoughCandidates(results, payload, 8)) {
+        // 第二阶段补齐普通主源，但仍不进入低质量 fallback。
+        results = results.concat(await searchSourcesByIds(fullIds, payload, keywords, 3200));
+    }
+
+    const shouldUseExternalAliases = forceExternalAliases || (!hasEnoughCandidates(results, payload, 5) && (results.length < 4 || payload.longAnime || payload.animeSpecialSeason || payload.animeIdentity && payload.animeIdentity.isLikelyAnime));
+    if (!searchOptions.fastOnly && shouldUseExternalAliases) {
         // 外部别名只在命中不足、长篇动漫或特别季时启用，避免每次详情页都被外部 API 拖慢。
+        markDebugTrace(payload, "externalAlias");
         const externalAliases = await fetchExternalAliases(payload);
         if (externalAliases.length) {
-            searchPayload = Object.assign({}, payload, { aliases: uniq([...(payload.aliases || []), ...externalAliases]) });
+            const expandedExternalAliases = externalAliases.flatMap(alias => titleWritingVariants(alias));
+            searchPayload = Object.assign({}, payload, { aliases: uniq([...(payload.aliases || []), ...externalAliases, ...expandedExternalAliases]) });
+            searchPayload.animeIdentity = buildAnimeIdentity(searchPayload);
+            searchPayload.requestIdentity = buildRequestIdentity(searchPayload);
             const aliasKeywords = buildSearchKeywords(searchPayload);
-            results = results.concat(await searchSourcesByIds(PRIMARY_SOURCE_IDS, searchPayload, aliasKeywords, 3600, { keywordLimit: forceExternalAliases ? 10 : 5 }));
+            const aliasSourceIds = searchPayload.animeSpecialSeason ? SPECIAL_ANIME_SOURCE_IDS : PRIMARY_SOURCE_IDS;
+            results = results.concat(await searchSourcesByIds(aliasSourceIds, searchPayload, aliasKeywords, 3200, { keywordLimit: forceExternalAliases ? 8 : 4 }));
         }
     }
 
-    if (!searchOptions.fastOnly && results.length < 8) {
+    if (!searchOptions.fastOnly && searchPayload.animeIdentity && searchPayload.animeIdentity.isLikelyAnime && !hasEnoughCandidates(results, searchPayload, 4)) {
+        const animeFallbackKeywords = uniq([
+            ...buildSearchKeywords(searchPayload),
+            ...buildSearchKeywords(payload),
+            safeText(payload.rawParams && payload.rawParams.originalTitle),
+            safeText(payload.rawParams && payload.rawParams.originalName)
+        ]).filter(Boolean);
+        results = results.concat(await searchSourcesByIds(SPECIAL_ANIME_SOURCE_IDS, searchPayload, animeFallbackKeywords, 3000, { keywordLimit: 6 }));
+    }
+
+    if (!searchOptions.fastOnly && !hasEnoughCandidates(results, searchPayload, 8)) {
         // fallback 源只作为补缺，不让慢源参与首屏结果。
-        results = results.concat(await searchSourcesByIds(FALLBACK_SOURCE_IDS, searchPayload, buildSearchKeywords(searchPayload).slice(0, 3), 3000));
+        const fallbackIds = searchPayload.animeSpecialSeason ? SPECIAL_ANIME_SOURCE_IDS.filter(id => FALLBACK_SOURCE_IDS.includes(id)) : FALLBACK_SOURCE_IDS;
+        results = results.concat(await searchSourcesByIds(fallbackIds, searchPayload, buildSearchKeywords(searchPayload).slice(0, 3), 2800));
     }
 
     return {
         candidates: dedupeCandidates(results, searchOptions.fastOnly ? 10 : 16),
-        payload: searchPayload
+        payload: searchPayload,
+        fastFailed: fastFailed
     };
 }
 
 // 解析 CMS vod_play_url 中用 # 和 $ 拼接的播放列表。
 function parseEpisodes(playGroup) {
-    return splitMultiValue(playGroup, "#")
+    const cacheKey = safeText(playGroup);
+    if (MATCH_CACHE.episodes.has(cacheKey)) return MATCH_CACHE.episodes.get(cacheKey);
+    const episodes = splitMultiValue(playGroup, "#")
         .map(part => {
             const splitIndex = part.indexOf("$");
             if (splitIndex <= 0) return null;
@@ -1522,6 +1953,8 @@ function parseEpisodes(playGroup) {
             return { title, videoUrl };
         })
         .filter(Boolean);
+    MATCH_CACHE.episodes.set(cacheKey, episodes);
+    return episodes;
 }
 
 // 给播放线路打分，优先 m3u8/mp4/http，降权网盘分享。
@@ -1532,6 +1965,7 @@ function scorePlayGroup(groupName, groupText, episodes, source) {
 
     if (text.includes(".m3u8")) score += 70;
     if (text.includes(".mp4")) score += 45;
+    if (text.includes("https://")) score += 12;
     if (/https?:\/\//.test(text)) score += 18;
     if (text.includes("share/")) score -= 25;
     if (text.includes("quark") || text.includes("aliyun") || text.includes("115") || text.includes("迅雷")) score -= 45;
@@ -1617,12 +2051,25 @@ function episodeMatchScore(label, payload, index, item, totalEpisodes, scheduleO
     const ep = Number(payload.episode) || 0;
     const epText = ep ? String(ep) : "";
     const epPadded = ep ? String(ep).padStart(2, "0") : "";
+    const animeLocalNumbers = animeLocalEpisodeNumbers(payload, item, totalEpisodes);
     const hasRequestedDate = episodeHasRequestedDate(rawLabel, payload);
     const variety = isLikelyVariety(payload, item);
     let score = 0;
     const identityScore = varietyIdentityScore(rawLabel, payload, item, index);
 
+    if (!payload.episodeName && isChineseTvWithoutEpisodeName(payload) && variety && !scheduleOrdinal) return -999;
+    if (!payload.episodeName && isChineseTvWithoutEpisodeName(payload) && variety && scheduleOrdinal) {
+        const labelIdentity = buildEpisodeIdentity(rawLabel, payload);
+        if (labelIdentity.part === "up" && ep >= 2 && !labelIdentity.issueNumber) return -999;
+        if (ep && scheduleOrdinal > ep + 4) return -999;
+    }
+
     if (identityScore !== null) {
+        if (payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity) && payload.episodeIdentity.part) {
+            const labelIdentity = buildEpisodeIdentity(rawLabel, payload);
+            const hasNearIdentityDate = payload.episodeIdentity.dateCodes.length && labelIdentity.dateCodes.length && hasNearRequestedDate(payload.episodeIdentity.dateCodes, labelIdentity.dateCodes, 1);
+            if (labelIdentity.part !== payload.episodeIdentity.part && !hasNearIdentityDate) return -999;
+        }
         if (payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity)) return identityScore;
         score += identityScore;
     }
@@ -1635,6 +2082,16 @@ function episodeMatchScore(label, payload, index, item, totalEpisodes, scheduleO
     if (ep && (normalized.includes(`e${epText}`) || normalized.includes(`e${epPadded}`))) score += 130;
     if (ep && episodeNumberMatches(rawLabel, ep)) score += payload.longAnime ? 220 : variety ? 8 : 100;
     if (ep && index + 1 === ep && totalEpisodes > 1) score += payload.longAnime ? 8 : variety ? 4 : 55;
+    if (animeLocalNumbers.length > 1) {
+        for (const localNumber of animeLocalNumbers) {
+            if (localNumber === ep) continue;
+            if (episodeNumberMatches(rawLabel, localNumber) || index + 1 === localNumber) {
+                score += 145 + animeSeasonBridgeScore(item, payload);
+                markDebugTrace(payload, "globalToLocalEpisode");
+                break;
+            }
+        }
+    }
 
     if (hasRequestedDate) score += variety ? 260 : 180;
     if (payload.episodeName) {
@@ -1680,11 +2137,6 @@ function parseEpisodeCandidates(item, source, payload) {
         if (!episodes.length) continue;
         const itemEvidenceText = [item.vod_name, item.vod_remarks, item.vod_class, item.type_name, groupName].map(safeText).join(" ");
 
-        // 第 0 季/OVA 只接受条目或线路本身有特别篇证据，防止播成普通季第一集。
-        if (payload.animeSpecialSeason && isAnimePayload(payload, item) && !hasAnimeSpecialEvidence(itemEvidenceText)) {
-            continue;
-        }
-
         if (movie) {
             // 电影没有集数概念，取第一个非预告/解说的可播项。
             const firstPlayable = episodes.find(episode => !isAuxiliaryTitle(episode.title)) || episodes[0];
@@ -1702,6 +2154,7 @@ function parseEpisodeCandidates(item, source, payload) {
         for (let index = 0; index < episodes.length; index += 1) {
             const episode = episodes[index];
             if (isAuxiliaryTitle(episode.title) && extractVarietyKind(payload.episodeName) === "normal") continue;
+            if (payload.specialSeason && !specialIdentityMatchesText(`${itemEvidenceText} ${episode.title}`, payload)) continue;
             // 国内综艺缺 episodeName 时只统计有效节目单项，回顾/花絮/直播等不参与顺序兜底。
             const shouldUseScheduleOrdinal = (isLikelyVariety(payload, item) || isChineseTvWithoutEpisodeName(payload)) && isVarietyScheduleEpisode(episode.title, payload);
             const scheduleOrdinal = shouldUseScheduleOrdinal ? ++varietyScheduleOrdinal : 0;
@@ -1712,7 +2165,7 @@ function parseEpisodeCandidates(item, source, payload) {
                 name: `${source.name} · ${episode.title}`,
                 description: buildStreamDescription(source, item, episodes.length, groupName),
                 url: episode.videoUrl,
-                score: scorePlayGroup(groupName, playGroup, [episode], source) + matchScore
+                score: scorePlayGroup(groupName, playGroup, [episode], source) + matchScore + (Number(payload.itemBridgePenalty) || 0)
             });
         }
 
@@ -1738,14 +2191,20 @@ function derivePayloadForItem(payload, item) {
     const maxEpisodes = playGroups.reduce((max, group) => Math.max(max, parseEpisodes(group).length), 0);
     const evidenceText = [item && item.vod_name, item && item.vod_remarks, item && item.vod_class, item && item.type_name].map(safeText).join(" ");
     const totalEpisodes = Math.max(maxEpisodes, extractTotalEpisodes(evidenceText));
+    const bridgeScore = animeSeasonBridgeScore(item, payload);
+    const expectedSeason = expectedAnimeSourceSeason(payload, totalEpisodes);
+    const itemSeason = extractSeasonNumber(evidenceText);
+    const bridgePenalty = bridgeScore && expectedSeason && itemSeason && itemSeason !== expectedSeason ? -120 : 0;
     if (totalEpisodes >= 80 && isAnimePayload(payload, item)) {
         // 有些长篇动漫只有打开详情后才能知道总集数，这里二次确认 longAnime。
         return Object.assign({}, payload, {
             isAnime: true,
             longAnime: true,
-            aliases: uniq([...(payload.aliases || []), safeText(item && item.vod_name)])
+            aliases: uniq([...(payload.aliases || []), safeText(item && item.vod_name)]),
+            itemBridgePenalty: bridgePenalty
         });
     }
+    if (bridgePenalty) return Object.assign({}, payload, { itemBridgePenalty: bridgePenalty });
     return payload;
 }
 
@@ -1758,11 +2217,12 @@ async function fetchStreamsByCandidate(candidate, payload) {
         const data = await requestCms(source, { ac: "detail", ids: candidate.vodId }, 4600);
         const item = Array.isArray(data.list) ? data.list[0] : null;
         if (!item || isAuxiliaryTitle([item.vod_name, item.vod_remarks, item.vod_class].join(" "))) return [];
+        if (!detailTitleMatchesPayload(item, payload)) return [];
         const itemPayload = derivePayloadForItem(payload, item);
         // 再次守住特别季、真人版和季数边界，防止搜索候选阶段漏网。
-        if (itemPayload.animeSpecialSeason && isAnimePayload(itemPayload, item) && !hasAnimeSpecialEvidence([item.vod_name, item.vod_remarks, item.vod_class, item.type_name].join(" "))) return [];
+        if (itemPayload.specialSeason && !specialIdentityMatchesText([item.vod_name, item.vod_remarks, item.vod_class, item.type_name, item.vod_play_url].join(" "), itemPayload)) return [];
         if (!hasAnimeSpecialEvidence([itemPayload.title, itemPayload.seriesName, itemPayload.episodeName].join(" ")) && /(真人版|真人剧|live\s*action)/i.test([item.vod_name, item.vod_remarks, item.vod_class, item.type_name].join(" "))) return [];
-        if (itemPayload.explicitSeason && itemPayload.seasonNumber && seasonMatchScore(item, itemPayload) < 0) return [];
+        if (itemPayload.explicitSeason && itemPayload.seasonNumber && seasonMatchScore(item, itemPayload) < 0 && !animeSeasonBridgeScore(item, itemPayload)) return [];
         return parseEpisodeCandidates(item, source, itemPayload);
     } catch (error) {
         return [];
@@ -1792,21 +2252,32 @@ function dedupeStreams(streams) {
 
 // 并发解析候选详情，按播放候选分数排序。
 async function resolveCandidateStreams(candidates, payload, limit) {
-    const streamGroups = await Promise.allSettled(
-        candidates.slice(0, limit).map(candidate => fetchStreamsByCandidate(candidate, payload))
-    );
-    return streamGroups
-        .flatMap(item => item.status === "fulfilled" ? item.value : [])
-        .sort((a, b) => b.score - a.score);
+    const selected = candidates.slice(0, limit);
+    const streams = [];
+    const batchSize = payload.animeSpecialSeason ? 2 : 3;
+    for (let index = 0; index < selected.length; index += batchSize) {
+        const streamGroups = await Promise.allSettled(
+            selected.slice(index, index + batchSize).map(candidate => fetchStreamsByCandidate(candidate, payload))
+        );
+        streams.push(...streamGroups.flatMap(item => item.status === "fulfilled" ? item.value : []));
+        streams.sort((a, b) => b.score - a.score);
+        if (hasEnoughStreams(streams, payload)) break;
+    }
+    return streams.sort((a, b) => b.score - a.score);
 }
 
 // 判断首批结果是否已经足够好，决定是否进入慢速补全阶段。
 function hasEnoughStreams(streams, payload) {
     const filtered = filterExactEpisodeStreams(streams, payload);
-    if (filtered.length >= 5) return true;
+    const directStreams = filtered.filter(stream => /\.(m3u8|mp4)(?:\?|$)|^https?:\/\//i.test(stream.url));
+    const directSourceCount = new Set(directStreams.map(stream => safeText(stream.description).split(" | ")[0] || safeText(stream.name).split("·")[0])).size;
+    if (directStreams.length >= 5 && directSourceCount >= 2) return true;
+    if (isMoviePayload(payload) && directStreams.length >= 3) return true;
     if ((payload.domesticVariety || payload.isVariety) && payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity)) {
-        return filtered.length > 0;
+        return directStreams.length > 0 || filtered.length > 0;
     }
+    if ((payload.longAnime || payload.animeSpecialSeason) && directStreams.length >= 3) return true;
+    if (payload.requestIdentity && payload.requestIdentity.mediaKind === "series" && Number(payload.episode) > 0 && directStreams.length >= 4) return true;
     return false;
 }
 
@@ -1815,6 +2286,12 @@ function filterExactEpisodeStreams(streams, payload) {
     if (isMoviePayload(payload)) return streams;
     let filteredStreams = streams;
     const hasReliableIdentity = payload.episodeIdentity && hasReliableVarietyIdentity(payload.episodeIdentity);
+
+    if (payload.specialSeason) {
+        const specialStreams = filteredStreams.filter(stream => specialIdentityMatchesText(`${stream.name} ${stream.description}`, payload));
+        if (specialStreams.length) filteredStreams = specialStreams;
+        else return [];
+    }
 
     if (payload.domesticVariety || (payload.isVariety && payload.episodeIdentity)) {
         const identityStreams = filteredStreams.filter(stream => varietyIdentityMatchesStream(stream, payload));
@@ -1840,7 +2317,22 @@ function filterExactEpisodeStreams(streams, payload) {
 
     const episodeNumber = Number(payload.episode) || 0;
     if (episodeNumber && isChineseTvWithoutEpisodeName(payload) && filteredStreams.some(stream => streamLooksLikeVariety(stream, payload))) {
-        return filteredStreams;
+        const scheduleStreams = filteredStreams.filter(stream => {
+            const label = safeText(stream.name).split("·").pop();
+            const identity = buildEpisodeIdentity(label, payload);
+            if (identity.kind === "trailer" || identity.kind === "cut" || identity.kind === "behind") return false;
+            if (/回顾|特辑|直播|采访|专访|直拍|彩蛋|花絮|名场面|副本解锁|存档|发布会|加更|纯享|超前|会员版/.test(label)) return false;
+            return identity.issueNumber || identity.part || identity.dateCodes.length || episodeNumberMatches(label, episodeNumber);
+        });
+        const strongScheduleStreams = scheduleStreams.filter(stream => Number(stream.score) >= 100);
+        const datedStreams = (strongScheduleStreams.length ? strongScheduleStreams : scheduleStreams).filter(stream => parseDateCode(stream.name));
+        if (datedStreams.length) {
+            const allowedDates = uniq(datedStreams.map(stream => parseDateCode(stream.name)).sort()).slice(0, 2);
+            const nearDatedStreams = datedStreams.filter(stream => allowedDates.includes(parseDateCode(stream.name)));
+            if (nearDatedStreams.length) return nearDatedStreams;
+        }
+        if (strongScheduleStreams.length) return strongScheduleStreams;
+        return scheduleStreams.length ? scheduleStreams : filteredStreams;
     }
 
     if (payload.isVariety && episodeNumber) {
@@ -1855,6 +2347,14 @@ function filterExactEpisodeStreams(streams, payload) {
             return episodeNumberMatches(text, episodeNumber);
         });
         if (exactEpisode.length) return exactEpisode;
+        if (payload.animeIdentity && payload.animeIdentity.isLikelyAnime) {
+            const animeLocalEpisode = filteredStreams.filter(stream => {
+                const totalMatch = safeText(stream.description).match(/共(\d+)集/);
+                const localNumbers = animeLocalEpisodeNumbers(payload, { vod_name: stream.description, vod_remarks: stream.description, vod_class: "动漫" }, totalMatch ? Number(totalMatch[1]) : 0);
+                return localNumbers.some(number => number !== episodeNumber && episodeNumberMatches(`${stream.name} ${stream.description}`, number));
+            });
+            if (animeLocalEpisode.length) return animeLocalEpisode;
+        }
     }
 
     return filteredStreams;
@@ -1868,11 +2368,17 @@ async function loadResource(params) {
     if (enrichedParams !== rawParams) payload = buildStreamPayload(enrichedParams);
     if (!payload.title && !payload.seriesName) return [];
 
-    let searchResult = await searchCandidates(payload, { fastOnly: true });
+    globalThis.__VodMaxLastDebug = payload.debugTrace;
+    let searchResult = await searchCandidates(payload, { fastOnly: true, allowFastFail: true });
     let candidates = searchResult.candidates;
     let resolvedPayload = searchResult.payload || payload;
+    if (searchResult.fastFailed) return [];
     let streams = await resolveCandidateStreams(candidates, resolvedPayload, 6);
     const resolvedCandidateKeys = new Set(candidates.slice(0, 6).map(candidate => `${candidate.sourceId}:${candidate.vodId}`));
+    if (resolvedPayload.specialSeason && !filterExactEpisodeStreams(streams, resolvedPayload).length) {
+        markDebugTrace(resolvedPayload, "fallbackSkipped");
+        return [];
+    }
 
     if (!hasEnoughStreams(streams, resolvedPayload)) {
         searchResult = await searchCandidates(payload, { fastOnly: false, forceExternalAliases: filterExactEpisodeStreams(streams, resolvedPayload).length < 5 });
