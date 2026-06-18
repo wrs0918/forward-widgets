@@ -54,7 +54,7 @@ WidgetMetadata = {
     title: "VOD资源聚合",
     description: "Forward 详情页资源解析，支持多源补全与季集智能匹配",
     author: "工位划水冠军",
-    version: "5.4.13",
+    version: "5.4.14",
     requiredVersion: "0.0.1",
     site: "https://github.com/wrs0918/forward-widgets",
     detailCacheDuration: 900,
@@ -375,6 +375,9 @@ function buildSpecialEpisodeIdentity(payload) {
     const varietyIdentity = buildEpisodeIdentity(text, payload || {});
     const evidence = hasAnimeSpecialEvidence(text) || varietyIdentity.kind !== "normal" || varietyIdentity.part || varietyIdentity.dateCodes.length || (payload.episodeName && extractSpecialTitleTokens(payload.episodeName).length);
     const tagMatch = text.match(SPECIAL_EPISODE_EVIDENCE_RE);
+    // TMDB 第 0 季的特别集常把真实归属季写进单集标题（如“第四季 超前企划”“第一季 收官特辑”）。
+    // 提取归属季后，既能用来扩展搜索关键词，也能避免第 0 季请求误配到别的季的特别集。
+    const ownerSeason = extractSeasonNumber([payload.episodeName, payload.title].map(safeText).join(" "));
     return {
         active: Boolean(payload.specialSeason || evidence),
         requestedSeasonZero: Boolean(payload.specialSeason),
@@ -385,6 +388,7 @@ function buildSpecialEpisodeIdentity(payload) {
         dateCodes: varietyIdentity.dateCodes || [],
         titleTokens: uniq([...(varietyIdentity.titleTokens || []), ...extractSpecialTitleTokens(payload.episodeName)]),
         tag: safeText(tagMatch && tagMatch[0]).toLowerCase(),
+        ownerSeason: ownerSeason,
         episodeNumber: Number(payload.episode) || 0
     };
 }
@@ -405,6 +409,17 @@ function specialIdentityEvidenceScore(text, payload) {
     if (identity.kind !== "normal") score += labelIdentity.kind === identity.kind ? 120 : -160;
     if (identity.part) score += labelIdentity.part === identity.part ? 80 : -110;
     if (identity.issueNumber && labelIdentity.issueNumber) score += identity.issueNumber === labelIdentity.issueNumber ? 85 : -140;
+    // 归属季一致才加分，候选明确标着不同季时强罚，杜绝“第0季的第四季企划”被第一季资源抢走。
+    if (identity.ownerSeason) {
+        const labelSeason = extractSeasonNumber(value);
+        if (labelSeason && labelSeason === identity.ownerSeason) score += 70;
+        else if (labelSeason && labelSeason !== identity.ownerSeason) score -= 150;
+        // 特别集若属于某个真实季，候选必须给出该季或特别篇证据；只凭日期命中不分季的主系列
+        // 正片是巧合（主系列每集都有日期），按“第 0 季宁缺毋滥”强罚，避免回落到主系列正片。
+        else if (!labelSeason && !hasAnimeSpecialEvidence(value) && labelIdentity.kind === "normal" && !labelIdentity.part && !labelIdentity.issueNumber) {
+            score -= 200;
+        }
+    }
     score += titleTokenOverlapScore(identity.titleTokens, uniq([...(labelIdentity.titleTokens || []), ...extractSpecialTitleTokens(value)]));
     return score;
 }
@@ -490,7 +505,11 @@ function animeLocalEpisodeNumbers(payload, item, totalEpisodes) {
     if (!ep || !payload || payload.specialSeason) return [];
     if (!((payload.animeIdentity && payload.animeIdentity.isLikelyAnime) || isAnimePayload(payload, item))) return [];
     const numbers = [ep];
-    const total = Number(totalEpisodes) || 0;
+    // 取模除数优先用源站声明的“全N集”，而不是播放列表条目数：播放列表常混入 PV/预告/特典，
+    // 会把每一集顶偏一位（如“全13集”却“共14集”时，16%14=2 误配，按 16%13=3 才正确）。
+    const declaredTotal = extractTotalEpisodes([item && item.vod_remarks, item && item.vod_name].map(safeText).join(" "));
+    const playlistTotal = Number(totalEpisodes) || 0;
+    const total = declaredTotal > 1 && (!playlistTotal || declaredTotal < playlistTotal) ? declaredTotal : playlistTotal;
     if (total > 1 && ep > total) {
         const expectedSeason = expectedAnimeSourceSeason(payload, total);
         const itemSeason = extractSeasonNumber([item && item.vod_name, item && item.vod_remarks].join(" "));
@@ -1056,6 +1075,8 @@ function normalizeAlias(alias) {
 // 过滤明显无效或容易污染搜索的别名。
 function aliasValueAllowed(alias, payload) {
     if (!alias || alias.length < 2 || alias.length > 50) return false;
+    // 纯数字别名几乎都是 Wikidata Q-id、TMDB id 等漏出的标识，拿去搜源既无意义又拖慢请求。
+    if (/^\d+$/.test(alias)) return false;
     if (/列表|角色|人物|游戏|小說|小说|漫畫|漫画|原聲|原声|soundtrack|volume\s*\d+|vol\.\s*\d+|kitchen/i.test(alias)) return false;
     return true;
 }
@@ -1272,13 +1293,19 @@ async function fetchTmdbTitleAliases(payload) {
 
 // 汇总所有外部别名源，失败的源直接跳过。
 async function fetchExternalAliases(payload) {
-    const settled = await Promise.allSettled([
-        fetchTmdbTitleAliases(payload),
-        fetchWikidataAliases(payload),
-        fetchTvmazeAliases(payload),
-        fetchJikanAliases(payload),
-        fetchBangumiAliases(payload)
-    ]);
+    // 动漫优先 Bangumi/Jikan：二者对东亚动漫的中日英标题与同义名最全，结果排前
+    // 让 uniq 保留它们的写法；同时跳过偏英美剧的 TVMaze 和噪声较多的 Wikidata，省一轮慢请求。
+    const isAnimeRequest = Boolean(
+        payload
+        && payload.mediaType !== "movie"
+        && !payload.domesticVariety
+        && !payload.isVariety
+        && (payload.isAnime || payload.longAnime || payload.animeSpecialSeason || (payload.animeIdentity && payload.animeIdentity.isLikelyAnime))
+    );
+    const tasks = isAnimeRequest
+        ? [fetchBangumiAliases(payload), fetchJikanAliases(payload), fetchTmdbTitleAliases(payload)]
+        : [fetchTmdbTitleAliases(payload), fetchWikidataAliases(payload), fetchTvmazeAliases(payload), fetchJikanAliases(payload), fetchBangumiAliases(payload)];
+    const settled = await Promise.allSettled(tasks);
     const dynamicAliases = settled.flatMap(item => item.status === "fulfilled" ? item.value : []);
     return uniq(dynamicAliases);
 }
@@ -1498,6 +1525,14 @@ function buildSearchKeywords(payload) {
             // 第 0 季/特别篇先搜窄关键词，避免回落到普通第一季。
             const identity = payload.specialEpisodeIdentity || {};
             specialKeywords.push(cleanWithoutSeason);
+            // 特别集若带真实归属季（如“第四季 超前企划”），补一组带季关键词，
+            // 否则平台资源都挂在“XX第四季”名下，纯标题搜不到会出现“暂无资源”。
+            if (identity.ownerSeason) {
+                const ownerSeasonChinese = seasonNumberText(identity.ownerSeason);
+                specialKeywords.push(`${cleanWithoutSeason}第${ownerSeasonChinese}季`);
+                specialKeywords.push(`${cleanWithoutSeason}${identity.ownerSeason}`);
+                specialKeywords.push(`${cleanWithoutSeason} 第${ownerSeasonChinese}季`);
+            }
             const kindKeywords = {
                 plus: ["加更", "特别加更"],
                 early: ["超前", "超前营业"],
@@ -1787,8 +1822,18 @@ async function searchSource(source, payload, keywords, timeout, options) {
     let cursor = 0;
     async function searchKeyword(keyword) {
         try {
-            const data = await requestCms(source, { ac: "detail", wd: keyword }, timeout);
-            const list = Array.isArray(data.list) ? data.list : [];
+            // 同一请求里多阶段会反复搜到相同的 (源, 关键词)，原始 list 与 payload 无关，
+            // 缓存后按需重新评分，省掉重复网络往返（实测能消掉每源每词 2~3 次重复查询）。
+            const searchCache = payload.searchListCache instanceof Map ? payload.searchListCache : null;
+            const cacheKey = `${source.id}::${keyword}`;
+            let list;
+            if (searchCache && searchCache.has(cacheKey)) {
+                list = searchCache.get(cacheKey);
+            } else {
+                const data = await requestCms(source, { ac: "detail", wd: keyword }, timeout);
+                list = Array.isArray(data.list) ? data.list : [];
+                if (searchCache) searchCache.set(cacheKey, list);
+            }
             const keywordResults = [];
             for (const item of list) {
                 const score = scoreSearchMatch(item, payload, source, keyword);
@@ -1895,8 +1940,10 @@ async function searchCandidates(payload, options) {
         };
     }
 
-    if (!searchOptions.fastOnly && fullIds.length && !hasEnoughCandidates(results, payload, 8)) {
-        // 第二阶段补齐普通主源，但仍不进入低质量 fallback。
+    if (!searchOptions.fastOnly && fullIds.length) {
+        // 第二阶段补齐均衡主源。均衡源是和快源同速的 CMS 接口，不是慢的外部别名 API，
+        // 且本阶段只在首轮命中不足时才进入，所以无条件补齐——快源常只有一份正确分卷，
+        // 其余正确分卷（如死神千年血战篇第二季）往往只在均衡源里，漏查会丢覆盖。
         results = results.concat(await searchSourcesByIds(fullIds, payload, keywords, 3200));
     }
 
@@ -2074,6 +2121,18 @@ function episodeMatchScore(label, payload, index, item, totalEpisodes, scheduleO
         score += identityScore;
     }
     score += varietyScheduleOrdinalScore(payload, scheduleOrdinal);
+
+    if (payload.specialSeason) {
+        // 第 0 季/OVA/特别篇：在不放宽证据门槛的前提下，用单集标题证据分、时长相近度和
+        // 标题关键词重叠把“对的那一条特别集”排到前面，缓解 OVA、特别篇难命中的问题。
+        const evidenceText = `${rawLabel} ${[item && item.vod_name, item && item.vod_remarks].map(safeText).join(" ")}`;
+        score += specialIdentityEvidenceScore(evidenceText, payload);
+        score += durationScore(payload.durationMinutes, item);
+        const identity = payload.specialEpisodeIdentity;
+        if (identity && identity.titleTokens && identity.titleTokens.length) {
+            score += titleTokenOverlapScore(identity.titleTokens, extractSpecialTitleTokens(rawLabel));
+        }
+    }
 
     if (payload.seasonNumber && ep) {
         const seText = `s${String(payload.seasonNumber).padStart(2, "0")}e${epPadded}`;
@@ -2368,6 +2427,8 @@ async function loadResource(params) {
     if (enrichedParams !== rawParams) payload = buildStreamPayload(enrichedParams);
     if (!payload.title && !payload.seriesName) return [];
 
+    // 请求级缓存：分阶段搜源会重复命中相同 (源, 关键词)，缓存原始 list 避免重复网络请求。
+    payload.searchListCache = new Map();
     globalThis.__VodMaxLastDebug = payload.debugTrace;
     let searchResult = await searchCandidates(payload, { fastOnly: true, allowFastFail: true });
     let candidates = searchResult.candidates;
@@ -2381,7 +2442,10 @@ async function loadResource(params) {
     }
 
     if (!hasEnoughStreams(streams, resolvedPayload)) {
-        searchResult = await searchCandidates(payload, { fastOnly: false, forceExternalAliases: filterExactEpisodeStreams(streams, resolvedPayload).length < 5 });
+        // 外部别名（TVMaze/Wikidata/Jikan/Bangumi）每个约 1.5~1.8s，只有“本地标题压根没匹配上”
+        // 时才值得查；已经有任一精确命中时强制外部别名只会徒增延迟，交给第二阶段均衡源补齐即可。
+        const exactCount = filterExactEpisodeStreams(streams, resolvedPayload).length;
+        searchResult = await searchCandidates(payload, { fastOnly: false, forceExternalAliases: exactCount === 0 });
         candidates = searchResult.candidates;
         resolvedPayload = searchResult.payload || payload;
         const remainingCandidates = candidates.filter(candidate => !resolvedCandidateKeys.has(`${candidate.sourceId}:${candidate.vodId}`));
