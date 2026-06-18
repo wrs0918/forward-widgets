@@ -112,6 +112,33 @@ function assertIdentity(text, expected, label) {
     }
 }
 
+// 确定性单元用例：动漫分季全局集数换算本季集数，不依赖网络。
+// 播放列表常混入 PV/预告，使条目数大于声明集数；取模除数必须用声明的“全N集”。
+const LOCAL_EPISODE_CASES = [
+    ["bleach tybw cour2 declared total beats playlist", { episode: 16, seasonNumber: 2, isAnime: true, animeIdentity: { isLikelyAnime: true } }, { vod_name: "死神千年血战篇2", vod_remarks: "全13集", vod_class: "动漫" }, 14, 3],
+    ["rental girlfriend stays correct with declared total", { episode: 31, seasonNumber: 1, isAnime: true, animeIdentity: { isLikelyAnime: true } }, { vod_name: "租借女友第三季", vod_remarks: "全12集", vod_class: "动漫" }, 12, 7],
+    ["rental girlfriend robust to stray playlist entry", { episode: 31, seasonNumber: 1, isAnime: true, animeIdentity: { isLikelyAnime: true } }, { vod_name: "租借女友第三季", vod_remarks: "全12集", vod_class: "动漫" }, 13, 7],
+    ["falls back to playlist length without declared total", { episode: 31, seasonNumber: 1, isAnime: true, animeIdentity: { isLikelyAnime: true } }, { vod_name: "租借女友第三季", vod_remarks: "", vod_class: "动漫" }, 12, 7]
+];
+
+function assertLocalEpisode(payload, item, playlistLength, expected, label) {
+    const numbers = context.animeLocalEpisodeNumbers(payload, item, playlistLength);
+    assert(numbers.includes(expected), `${label}: expected local episode ${expected}, got [${numbers}]`);
+}
+
+// 确定性单元用例：第 0 季特别集的归属季约束，不依赖网络。
+// 特别集标题里带真实归属季时，同季候选应加分，明确不同季的候选应被强罚以避免张冠李戴。
+function assertOwnerSeasonGuard() {
+    const payload = context.buildStreamPayload({ type: "tv", title: "花儿与少年", seriesName: "花儿与少年", season: 0, episode: 1, episodeName: "第四季 超前企划：想象力露营", airDate: "2022-06-10" });
+    assert(payload.specialEpisodeIdentity.ownerSeason === 4, `owner season guard: expected ownerSeason=4, got ${payload.specialEpisodeIdentity.ownerSeason}`);
+    const sameSeason = context.specialIdentityEvidenceScore("花儿与少年第四季 超前企划 想象力露营", payload);
+    const otherSeason = context.specialIdentityEvidenceScore("花儿与少年第一季 收官特辑", payload);
+    assert(sameSeason > otherSeason + 100, `owner season guard: same-season (${sameSeason}) should beat other-season (${otherSeason}) by margin`);
+    assert(!context.specialIdentityMatchesText("花儿与少年第一季 第1集", payload), "owner season guard: must not fall back to a different season's normal episode");
+}
+
+
+
 const OFFICIAL_STYLE_CASES = [
     ["iqiyi normal part", "06-12 第9期: 下", { dateCode: "20260612", issueNumber: 9, part: "down", kind: "normal" }],
     ["iqiyi special plus", "20260517特别加更上", { dateCode: "20260517", part: "up", kind: "plus" }],
@@ -535,6 +562,27 @@ const CASES = [
         assertIdentity(text, expected, label);
         console.log(`PASS official style ${label}`);
     }
+
+    for (const [label, payload, item, playlistLength, expected] of LOCAL_EPISODE_CASES) {
+        assertLocalEpisode(payload, item, playlistLength, expected, label);
+        console.log(`PASS local episode ${label}`);
+    }
+
+    assertOwnerSeasonGuard();
+    console.log("PASS special owner season guard");
+
+    // 第 0 季/OVA：标题关键词+时长辅助应把对的特别集排到错的特别集前面（证据门槛不放宽）。
+    (function assertSpecialEpisodeRanking() {
+        const payload = context.buildStreamPayload({ type: "tv", title: "异兽魔都", seriesName: "异兽魔都", season: 0, episode: 1, episodeName: "OVA 美食祭", duration: 24, originalTitle: "Dorohedoro" });
+        const item = { vod_name: "异兽魔都OVA", vod_remarks: "全6集", vod_duration: "24分钟", vod_class: "动漫" };
+        const correct = context.episodeMatchScore("OVA 美食祭", payload, 0, item, 6, 0);
+        const wrong = context.episodeMatchScore("特别篇 番外", payload, 0, Object.assign({}, item, { vod_duration: "50分钟" }), 6, 0);
+        assert(correct > wrong, `special episode ranking: matching OVA (${correct}) should outrank mismatched special (${wrong})`);
+    })();
+    console.log("PASS special episode ranking");
+
+
+
 
     for (const testCase of CASES) {
         const startedAt = Date.now();
